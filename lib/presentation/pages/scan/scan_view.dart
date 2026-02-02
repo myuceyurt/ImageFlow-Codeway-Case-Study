@@ -77,16 +77,22 @@ class ScanView extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        const SizedBox(width: 48),
+                        IconButton(
+                          onPressed: controller.pickImageFromGallery,
+                          icon: const Icon(
+                            Icons.photo_library,
+                            color: Colors.white,
+                            size: 30,
+                          ),
+                        ),
                         GestureDetector(
                           onTap: () async {
                             final path = await controller.captureImage();
                             if (path != null) {
                               await Get.toNamed<dynamic>(
-                                Routes.RESULT,
+                                Routes.PROCESSING,
                                 arguments: {
                                   'imagePath': path,
-                                  'faces': controller.detectedFaces,
                                   'type': controller.scanType.value,
                                 },
                               );

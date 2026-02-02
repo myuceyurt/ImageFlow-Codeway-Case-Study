@@ -5,6 +5,10 @@ import 'package:image_flow/presentation/pages/home/home_view.dart';
 import 'package:image_flow/presentation/pages/result/result_binding.dart';
 import 'package:image_flow/presentation/pages/result/result_view.dart';
 import 'package:image_flow/presentation/pages/scan/scan_view.dart';
+import 'package:image_flow/presentation/pages/history_detail/history_detail_binding.dart';
+import 'package:image_flow/presentation/pages/history_detail/history_detail_view.dart';
+import 'package:image_flow/presentation/pages/processing/processing_binding.dart';
+import 'package:image_flow/presentation/pages/processing/processing_view.dart';
 import 'package:image_flow/presentation/routes/app_routes.dart';
 
 class AppPages {
@@ -28,6 +32,16 @@ class AppPages {
       name: Routes.HOME,
       page: () => const HomeView(),
       binding: HomeBinding(),
+    ),
+    GetPage<dynamic>(
+      name: Routes.PROCESSING,
+      page: () => const ProcessingView(),
+      binding: ProcessingBinding(),
+    ),
+    GetPage<dynamic>(
+      name: Routes.HISTORY_DETAIL,
+      page: () => const HistoryDetailView(),
+      binding: HistoryDetailBinding(),
     ),
   ];
 }

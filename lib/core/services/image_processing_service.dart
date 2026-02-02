@@ -25,6 +25,24 @@ class ImageProcessingService {
     }
   }
 
+  Future<bool> hasFaces(File image) async {
+    final faceDetector = FaceDetector(
+      options: FaceDetectorOptions(
+        enableContours: true,
+      ),
+    );
+    try {
+      final inputImage = InputImage.fromFile(image);
+      final faces = await faceDetector.processImage(inputImage);
+      return faces.isNotEmpty;
+    } catch (e) {
+      if (kDebugMode) print('Face check failed: $e');
+      return false;
+    } finally {
+      await faceDetector.close();
+    }
+  }
+
 
   Future<File> processFaceFlow(
     File originalImage,

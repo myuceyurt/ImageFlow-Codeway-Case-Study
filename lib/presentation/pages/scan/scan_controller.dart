@@ -7,6 +7,8 @@ import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_flow/core/utils/camera_utils.dart';
 import 'package:image_flow/data/models/scan_model.dart';
+import 'package:image_flow/presentation/routes/app_routes.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class ScanController extends GetxController {
@@ -212,6 +214,35 @@ class ScanController extends GetxController {
     } catch (e) {
       Get.snackbar('Error', 'Capture failed: $e');
       return null;
+    }
+  }
+  Future<void> pickImageFromGallery() async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: ImageSource.gallery);
+    
+    if (image != null) {
+      if (scanType.value == ScanType.face) {
+        // If we are in face mode, we might want to check for faces in the picked image?
+        // Or just pass it to result/processing.
+        // For consistency with Home, let's route to Processing (not yet created but planned).
+        // However, existing code routes to RESULT manually.
+        // The plan says "Route to Routes.PROCESSING".
+        Get.toNamed<void>(
+            Routes.PROCESSING,
+             arguments: {
+              'imagePath': image.path,
+              'type': scanType.value,
+            },
+        );
+      } else {
+         Get.toNamed<void>(
+            Routes.PROCESSING,
+             arguments: {
+              'imagePath': image.path,
+              'type': scanType.value,
+            },
+        );
+      }
     }
   }
 }

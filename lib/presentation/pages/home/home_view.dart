@@ -57,7 +57,7 @@ class HomeView extends GetView<HomeController> {
         );
       }),
       floatingActionButton: FloatingActionButton(
-        onPressed: controller.navigateToScan,
+        onPressed: controller.showCaptureOptions,
         backgroundColor: AppTheme.tawnyOwl,
         child: const Icon(Icons.add_a_photo, color: Colors.white),
       ),
@@ -78,7 +78,9 @@ class HomeView extends GetView<HomeController> {
         ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: Stack(
+      child: GestureDetector(
+        onTap: () => controller.navigateToDetail(scan),
+        child: Stack(
         children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -158,6 +160,7 @@ class HomeView extends GetView<HomeController> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
