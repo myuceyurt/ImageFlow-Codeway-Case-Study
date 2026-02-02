@@ -93,7 +93,7 @@ class ScanController extends GetxController {
     if (_isBusy) return;
     _isBusy = true;
 
-    // Use Future to avoid void async
+
     Future<void>(() async {
       try {
         final camera = _cameras[_cameraIndex];

@@ -42,8 +42,8 @@ class ScanView extends StatelessWidget {
                 if (controller.detectedFaces.isEmpty) return const SizedBox();
 
                 final imageSize = Size(
-                  camera.value.previewSize!.height,
                   camera.value.previewSize!.width,
+                  camera.value.previewSize!.height
                 );
 
                 return CustomPaint(
@@ -64,7 +64,7 @@ class ScanView extends StatelessWidget {
                   children: [
                     IconButton(
                       onPressed: () {
-                        // TODO(user): Gallery picker
+
                       },
                       icon: const Icon(
                         Icons.photo_library,

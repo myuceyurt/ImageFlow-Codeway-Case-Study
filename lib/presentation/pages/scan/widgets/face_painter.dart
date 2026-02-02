@@ -18,40 +18,52 @@ class FacePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (imageSize.width == 0 || imageSize.height == 0) return;
+
     final paint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0
       ..color = AppTheme.tawnyOwl;
 
+    double imageWidth = imageSize.width;
+    double imageHeight = imageSize.height;
+
+    if (rotation == InputImageRotation.rotation90deg ||
+        rotation == InputImageRotation.rotation270deg) {
+      imageWidth = imageSize.height;
+      imageHeight = imageSize.width;
+    }
+
+    final double scaleX = size.width / imageWidth;
+    final double scaleY = size.height / imageHeight;
+    final double scale = scaleX > scaleY ? scaleX : scaleY;
+
+    final double offsetX = (size.width - imageWidth * scale) / 2;
+    final double offsetY = (size.height - imageHeight * scale) / 2;
+
     for (final face in faces) {
-      final left = _translateX(
-        face.boundingBox.left,
-        size,
-        imageSize,
-        rotation,
-        cameraLensDirection,
-      );
-      final top = _translateY(
-        face.boundingBox.top,
-        size,
-        imageSize,
-        rotation,
-        cameraLensDirection,
-      );
-      final right = _translateX(
-        face.boundingBox.right,
-        size,
-        imageSize,
-        rotation,
-        cameraLensDirection,
-      );
-      final bottom = _translateY(
-        face.boundingBox.bottom,
-        size,
-        imageSize,
-        rotation,
-        cameraLensDirection,
-      );
+      final rect = face.boundingBox;
+      
+
+
+      
+      double left = rect.left * scale + offsetX;
+      double top = rect.top * scale + offsetY;
+      double right = rect.right * scale + offsetX;
+      double bottom = rect.bottom * scale + offsetY;
+
+
+      if (cameraLensDirection == CameraLensDirection.front) {
+
+        final centerX = size.width / 2;
+        left = centerX + (centerX - left);
+        right = centerX + (centerX - right);
+        
+
+        final temp = left;
+        left = right;
+        right = temp;
+      }
 
       canvas.drawRect(
         Rect.fromLTRB(left, top, right, bottom),
@@ -60,38 +72,11 @@ class FacePainter extends CustomPainter {
     }
   }
 
-  double _translateX(
-    double x,
-    Size canvasSize,
-    Size imageSize,
-    InputImageRotation rotation,
-    CameraLensDirection cameraLensDirection,
-  ) {
-    if (rotation == InputImageRotation.rotation90deg ||
-        rotation == InputImageRotation.rotation270deg) {
-      return x * canvasSize.width / imageSize.height;
-    } else {
-      return x * canvasSize.width / imageSize.width;
-    }
-  }
-
-  double _translateY(
-    double y,
-    Size canvasSize,
-    Size imageSize,
-    InputImageRotation rotation,
-    CameraLensDirection cameraLensDirection,
-  ) {
-    if (rotation == InputImageRotation.rotation90deg ||
-        rotation == InputImageRotation.rotation270deg) {
-      return y * canvasSize.height / imageSize.width;
-    } else {
-      return y * canvasSize.height / imageSize.height;
-    }
-  }
-
   @override
   bool shouldRepaint(FacePainter oldDelegate) {
-    return oldDelegate.faces != faces || oldDelegate.imageSize != imageSize;
+    return oldDelegate.faces != faces ||
+        oldDelegate.imageSize != imageSize ||
+        oldDelegate.rotation != rotation ||
+        oldDelegate.cameraLensDirection != cameraLensDirection;
   }
 }
