@@ -24,7 +24,6 @@ class CameraUtils {
 
     final inputImageFormat = _inputImageFormat(image.format.group);
 
-    // InputImageMetadata replacement
     final metadata = InputImageMetadata(
       size: imageSize,
       rotation: imageRotation,

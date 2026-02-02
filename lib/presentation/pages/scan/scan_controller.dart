@@ -56,7 +56,7 @@ class ScanController extends GetxController {
       }
       
       _cameraIndex = _cameras.indexWhere(
-        (c) => c.lensDirection == CameraLensDirection.back,
+        (c) => c.lensDirection == CameraLensDirection.front,
       );
       if (_cameraIndex == -1) _cameraIndex = 0;
 

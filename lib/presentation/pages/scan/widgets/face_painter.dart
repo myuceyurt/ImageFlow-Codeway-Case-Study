@@ -42,34 +42,64 @@ class FacePainter extends CustomPainter {
     final double offsetY = (size.height - imageHeight * scale) / 2;
 
     for (final face in faces) {
-      final rect = face.boundingBox;
-      
+      final contour = face.contours[FaceContourType.face];
+      if (contour == null) continue;
 
+      final path = Path();
+      final points = contour.points;
 
-      
-      double left = rect.left * scale + offsetX;
-      double top = rect.top * scale + offsetY;
-      double right = rect.right * scale + offsetX;
-      double bottom = rect.bottom * scale + offsetY;
+      if (points.isEmpty) continue;
 
-
-      if (cameraLensDirection == CameraLensDirection.front) {
-
-        final centerX = size.width / 2;
-        left = centerX + (centerX - left);
-        right = centerX + (centerX - right);
-        
-
-        final temp = left;
-        left = right;
-        right = temp;
-      }
-
-      canvas.drawRect(
-        Rect.fromLTRB(left, top, right, bottom),
-        paint,
+      var firstPoint = points.first;
+      var (mappedX, mappedY) = _mapPoint(
+        firstPoint.x.toDouble(),
+        firstPoint.y.toDouble(),
+        size,
+        scale,
+        offsetX,
+        offsetY,
+        imageWidth,
       );
+      path.moveTo(mappedX, mappedY);
+
+      for (var i = 1; i < points.length; i++) {
+        final p = points[i];
+        var (x, y) = _mapPoint(
+          p.x.toDouble(),
+          p.y.toDouble(),
+          size,
+          scale,
+          offsetX,
+          offsetY,
+          imageWidth,
+        );
+        path.lineTo(x, y);
+      }
+      
+      path.close();
+
+      canvas.drawPath(path, paint);
     }
+  }
+
+  (double, double) _mapPoint(
+    double x,
+    double y,
+    Size size,
+    double scale,
+    double offsetX,
+    double offsetY,
+    double imageWidth,
+  ) {
+    double mappedX = x * scale + offsetX;
+    double mappedY = y * scale + offsetY;
+
+    if (cameraLensDirection == CameraLensDirection.front) {
+      final centerX = size.width / 2;
+      mappedX = centerX + (centerX - mappedX);
+    }
+
+    return (mappedX, mappedY);
   }
 
   @override

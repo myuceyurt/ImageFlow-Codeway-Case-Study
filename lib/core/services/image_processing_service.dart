@@ -15,39 +15,53 @@ class ImageProcessingService {
 
   final FileService _fileService;
 
-  /// Processes the image for the Face Flow:
-  /// 1. Decodes image in isolate.
-  /// 2. Crops faces (with padding).
-  /// 3. Grayscales faces.
-  /// 4. Composites them back.
+
   Future<File> processFaceFlow(
     File originalImage,
-    List<Face> detectedFaces,
   ) async {
-    try {
-      final imageBytes = await originalImage.readAsBytes();
+    final faceDetector = FaceDetector(
+      options: FaceDetectorOptions(
+        enableContours: true,
+        enableClassification: false,
+      ),
+    );
 
-      // We pass a simple map or DTO to the isolate to avoid sending complex
-      // objects if they aren't compatible, but Face and Rect are sendable.
-      // However, ML Kit Face object might contain native handles,
-      // so we extract Rects.
-      final faceRects = detectedFaces.map((f) => f.boundingBox).toList();
+    try {
+      final inputImage = InputImage.fromFile(originalImage);
+      final faces = await faceDetector.processImage(inputImage);
+
+
+      final allContours = <List<img.Point>>[];
+
+      for (final face in faces) {
+        final contour = face.contours[FaceContourType.face];
+        if (contour != null) {
+          final points = contour.points
+              .map((p) => img.Point(p.x.toInt(), p.y.toInt()))
+              .toList();
+          
+          if (points.isNotEmpty) {
+            allContours.add(points);
+          }
+        }
+      }
+
+      final imageBytes = await originalImage.readAsBytes();
 
       final processedBytes = await compute(
         _isolateProcessFaces,
-        _FaceProcessRequest(imageBytes, faceRects),
+        _FaceProcessRequest(imageBytes, allContours),
       );
 
       return await _fileService.saveImageFile(processedBytes);
     } catch (e) {
       throw AppException('Failed to process face flow: $e');
+    } finally {
+      faceDetector.close();
     }
   }
 
-  /// Processes the image for the Document Flow:
-  /// 1. Decodes image in isolate.
-  /// 2. Crops to bounding box of all text.
-  /// 3. Enhances contrast/brightness.
+
   Future<File> processDocumentFlow(
     File originalImage,
     RecognizedText detectedText,
@@ -55,7 +69,7 @@ class ImageProcessingService {
     try {
       final imageBytes = await originalImage.readAsBytes();
 
-      // Calculate global bounding box for all text blocks
+
       Rect? globalRect;
       for (final block in detectedText.blocks) {
         if (globalRect == null) {
@@ -81,12 +95,12 @@ class ImageProcessingService {
   }
 }
 
-// --- Isolate Data Classes ---
+
 
 class _FaceProcessRequest {
-  _FaceProcessRequest(this.imageBytes, this.faceRects);
+  _FaceProcessRequest(this.imageBytes, this.contours);
   final Uint8List imageBytes;
-  final List<Rect> faceRects;
+  final List<List<img.Point>> contours;
 }
 
 class _DocProcessRequest {
@@ -95,70 +109,64 @@ class _DocProcessRequest {
   final Rect cropRect;
 }
 
-// --- Isolate Functions ---
+
 
 Future<Uint8List> _isolateProcessFaces(_FaceProcessRequest request) async {
-  // 1. Decode Image (Image v4)
-  final decodedImage = img.decodeImage(request.imageBytes);
-  if (decodedImage == null) throw Exception('Failed to decode image');
 
-  // 2. Bake Orientation (CRITICAL for ML Kit coordinates)
-  final orientedImage = img.bakeOrientation(decodedImage);
+  var image = img.decodeImage(request.imageBytes);
+  if (image == null) throw Exception('Failed to decode image');
 
-  for (final rect in request.faceRects) {
-    // Convert Rect to integer coordinates
-    var x = rect.left.toInt();
-    var y = rect.top.toInt();
-    var w = rect.width.toInt();
-    var h = rect.height.toInt();
 
-    // Add 10% padding
-    final paddingW = (w * 0.1).toInt();
-    final paddingH = (h * 0.1).toInt();
+  image = img.bakeOrientation(image);
 
-    x = math.max(0, x - paddingW);
-    y = math.max(0, y - paddingH);
-    w = math.min(orientedImage.width - x, w + (paddingW * 2));
-    h = math.min(orientedImage.height - y, h + (paddingH * 2));
 
-    // Ensure valid crop dimensions
-    if (w <= 0 || h <= 0) continue;
+  
+  if (request.contours.isEmpty) {
 
-    // 3. Crop Face
-    final faceCrop = img.copyCrop(
-      orientedImage,
-      x: x,
-      y: y,
-      width: w,
-      height: h,
-    );
-
-    // 4. Apply Grayscale
-    final grayscaleFace = img.grayscale(faceCrop);
-
-    // 5. Composite back
-    img.compositeImage(orientedImage, grayscaleFace, dstX: x, dstY: y);
+    return img.encodeJpg(image);
   }
 
-  // 6. Encode as JPG
-  return img.encodeJpg(orientedImage);
+
+  final grayscaleImage = img.grayscale(image.clone());
+
+
+  final mask = img.Image(width: image.width, height: image.height);
+  img.fill(mask, color: img.ColorRgb8(0, 0, 0));
+
+  for (final contour in request.contours) {
+     img.fillPolygon(mask, vertices: contour, color: img.ColorRgb8(255, 255, 255));
+  }
+  
+
+  for (final pixel in image) {
+    final maskPixel = mask.getPixel(pixel.x, pixel.y);
+    if (maskPixel.r > 0) {
+      final grayPixel = grayscaleImage.getPixel(pixel.x, pixel.y);
+      pixel.r = grayPixel.r;
+      pixel.g = grayPixel.g;
+      pixel.b = grayPixel.b;
+    }
+  }
+
+
+  return img.encodeJpg(image);
 }
 
 Future<Uint8List> _isolateProcessDocument(_DocProcessRequest request) async {
-  // 1. Decode Image
+
   final decodedImage = img.decodeImage(request.imageBytes);
   if (decodedImage == null) throw Exception('Failed to decode image');
 
-  // 2. Bake Orientation
+
   final orientedImage = img.bakeOrientation(decodedImage);
 
-  // 3. Crop to Bounding Box (with some padding)
+
   var x = request.cropRect.left.toInt();
   var y = request.cropRect.top.toInt();
   var w = request.cropRect.width.toInt();
   var h = request.cropRect.height.toInt();
 
-  // Add small padding for document
+
   const padding = 20;
   x = math.max(0, x - padding);
   y = math.max(0, y - padding);
@@ -169,14 +177,13 @@ Future<Uint8List> _isolateProcessDocument(_DocProcessRequest request) async {
 
   final docCrop = img.copyCrop(orientedImage, x: x, y: y, width: w, height: h);
 
-  // 4. Adjust Color (Contrast/Brightness) - Mimic scan effect
-  // Image v4 uses adjustColor
+
   final enhancedDoc = img.adjustColor(
     docCrop,
-    contrast: 1.2, // Increase contrast
-    brightness: 1.1, // Slight brightness increase
+    contrast: 1.2,
+    brightness: 1.1,
   );
 
-  // 5. Encode
+
   return img.encodeJpg(enhancedDoc);
 }

@@ -12,7 +12,6 @@ void main() async {
   
   await Hive.initFlutter();
   
-  // Dependency Injection
   final fileService = Get.put(FileService());
   Get.put(ImageProcessingService(fileService));
 

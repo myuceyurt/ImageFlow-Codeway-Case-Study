@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:get/get.dart';
-import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+
 import 'package:image_flow/core/services/image_processing_service.dart';
 
 class ResultController extends GetxController {
@@ -9,7 +9,7 @@ class ResultController extends GetxController {
 
   String? originalImagePath;
   String? processedImagePath;
-  List<Face> detectedFaces = [];
+
   
   bool isLoading = true;
   String? errorMessage;
@@ -19,7 +19,6 @@ class ResultController extends GetxController {
     super.onInit();
     final args = Get.arguments as Map<String, dynamic>;
     originalImagePath = args['imagePath'] as String;
-    detectedFaces = args['faces'] as List<Face>;
     
     _processImage();
   }
@@ -36,7 +35,6 @@ class ResultController extends GetxController {
       final originalFile = File(originalImagePath!);
       final processedFile = await _imageProcessingService.processFaceFlow(
         originalFile,
-        detectedFaces,
       );
       
       processedImagePath = processedFile.path;
