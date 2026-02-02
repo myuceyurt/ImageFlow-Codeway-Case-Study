@@ -2,9 +2,12 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_flow/core/theme/app_theme.dart';
+import 'package:image_flow/data/models/scan_model.dart';
 import 'package:image_flow/presentation/pages/scan/scan_controller.dart';
 import 'package:image_flow/presentation/pages/scan/widgets/face_painter.dart';
+import 'package:image_flow/presentation/pages/scan/widgets/scanner_guide_painter.dart';
 import 'package:image_flow/presentation/routes/app_routes.dart';
 
 class ScanView extends StatelessWidget {
@@ -39,81 +42,87 @@ class ScanView extends StatelessWidget {
                 ),
               ),
               Obx(() {
-                if (controller.detectedFaces.isEmpty) return const SizedBox();
+                  final imageSize = Size(
+                    camera.value.previewSize!.width,
+                    camera.value.previewSize!.height,
+                  );
 
-                final imageSize = Size(
-                  camera.value.previewSize!.width,
-                  camera.value.previewSize!.height
-                );
-
-                return CustomPaint(
-                  painter: FacePainter(
-                    faces: controller.detectedFaces,
-                    imageSize: imageSize,
-                    rotation: InputImageRotation.rotation90deg,
-                    cameraLensDirection: camera.description.lensDirection,
-                  ),
-                );
+                  if (controller.scanType.value == ScanType.face) {
+                    if (controller.detectedFaces.isEmpty) {
+                      return const SizedBox();
+                    }
+                    return CustomPaint(
+                      painter: FacePainter(
+                        faces: controller.detectedFaces,
+                        imageSize: imageSize,
+                        rotation: InputImageRotation.rotation90deg,
+                        cameraLensDirection: camera.description.lensDirection,
+                      ),
+                    );
+                } else {
+                    return CustomPaint(
+                      size: Size.infinite,
+                      painter: ScannerGuidePainter(),
+                    );
+                }
               }),
               Positioned(
-                bottom: 50,
+                bottom: 30,
                 left: 0,
                 right: 0,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                child: Column(
                   children: [
-                    IconButton(
-                      onPressed: () {
-
-                      },
-                      icon: const Icon(
-                        Icons.photo_library,
-                        color: Colors.white,
-                        size: 30,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () async {
-                        final path = await controller.captureImage();
-                        if (path != null) {
-                          Get.toNamed(
-                            Routes.RESULT,
-                            arguments: {
-                              'imagePath': path,
-                              'faces': controller.detectedFaces,
-                            },
-                          );
-                        }
-                      },
-                      child: Container(
-                        height: 80,
-                        width: 80,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 4),
-                          gradient: const LinearGradient(
-                            colors: [
-                              AppTheme.tawnyOwl,
-                              AppTheme.greatHornedOwl,
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
+                    _buildModeSelector(controller),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        const SizedBox(width: 48),
+                        GestureDetector(
+                          onTap: () async {
+                            final path = await controller.captureImage();
+                            if (path != null) {
+                              await Get.toNamed<dynamic>(
+                                Routes.RESULT,
+                                arguments: {
+                                  'imagePath': path,
+                                  'faces': controller.detectedFaces,
+                                  'type': controller.scanType.value,
+                                },
+                              );
+                            }
+                          },
+                          child: Container(
+                            height: 80,
+                            width: 80,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 4),
+                              gradient: const LinearGradient(
+                                colors: [
+                                  AppTheme.tawnyOwl,
+                                  AppTheme.greatHornedOwl,
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.camera_alt,
+                              color: Colors.white,
+                              size: 36,
+                            ),
                           ),
                         ),
-                        child: const Icon(
-                          Icons.camera_alt,
-                          color: Colors.white,
-                          size: 36,
+                        IconButton(
+                          onPressed: controller.toggleCamera,
+                          icon: const Icon(
+                            Icons.cameraswitch,
+                            color: Colors.white,
+                            size: 30,
+                          ),
                         ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: controller.toggleCamera,
-                      icon: const Icon(
-                        Icons.cameraswitch,
-                        color: Colors.white,
-                        size: 30,
-                      ),
+                      ],
                     ),
                   ],
                 ),
@@ -129,6 +138,47 @@ class ScanView extends StatelessWidget {
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildModeSelector(ScanController controller) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Obx(() => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildModeButton(
+            context: Get.context!,
+            title: 'Face',
+            isSelected: controller.scanType.value == ScanType.face,
+          ),
+          const SizedBox(width: 16),
+          _buildModeButton(
+            context: Get.context!,
+            title: 'Document',
+            isSelected: controller.scanType.value == ScanType.document,
+          ),
+        ],
+      ),),
+    );
+  }
+
+  Widget _buildModeButton({
+    required BuildContext context,
+    required String title,
+    required bool isSelected,
+  }) {
+    return Text(
+      title,
+      style: TextStyle(
+        color: isSelected ? AppTheme.tawnyOwl : Colors.white70,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        fontSize: 16,
       ),
     );
   }

@@ -4,6 +4,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:image_flow/core/services/file_service.dart';
 import 'package:image_flow/core/services/image_processing_service.dart';
 import 'package:image_flow/core/theme/app_theme.dart';
+import 'package:image_flow/data/models/scan_model.dart';
 import 'package:image_flow/presentation/routes/app_pages.dart';
 import 'package:image_flow/presentation/routes/app_routes.dart';
 
@@ -11,6 +12,10 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   await Hive.initFlutter();
+  Hive
+    ..registerAdapter(ScanModelAdapter())
+    ..registerAdapter(ScanTypeAdapter());
+  await Hive.openBox<ScanModel>('scans');
   
   final fileService = Get.put(FileService());
   Get.put(ImageProcessingService(fileService));
@@ -29,7 +34,7 @@ class ImageFlowApp extends StatelessWidget {
       theme: AppTheme.darkTheme,
       darkTheme: AppTheme.darkTheme,
       debugShowCheckedModeBanner: false,
-      initialRoute: AppPages.INITIAL,
+      initialRoute: AppPages.initial,
       getPages: AppPages.routes,
     );
   }
@@ -41,7 +46,7 @@ class SplashScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Future.delayed(const Duration(seconds: 2), () {
-        Get.offNamed(Routes.SCAN);
+        Get.offNamed<void>(Routes.HOME);
     });
 
     return Scaffold(

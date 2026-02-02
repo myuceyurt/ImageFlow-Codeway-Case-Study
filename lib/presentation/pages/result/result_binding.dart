@@ -5,7 +5,7 @@ class ResultBinding extends Bindings {
   @override
   void dependencies() {
     Get.lazyPut<ResultController>(
-      () => ResultController(),
+      ResultController.new,
     );
   }
 }

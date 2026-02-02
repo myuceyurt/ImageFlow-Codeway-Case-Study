@@ -25,8 +25,8 @@ class FacePainter extends CustomPainter {
       ..strokeWidth = 2.0
       ..color = AppTheme.tawnyOwl;
 
-    double imageWidth = imageSize.width;
-    double imageHeight = imageSize.height;
+    var imageWidth = imageSize.width;
+    var imageHeight = imageSize.height;
 
     if (rotation == InputImageRotation.rotation90deg ||
         rotation == InputImageRotation.rotation270deg) {
@@ -34,12 +34,12 @@ class FacePainter extends CustomPainter {
       imageHeight = imageSize.width;
     }
 
-    final double scaleX = size.width / imageWidth;
-    final double scaleY = size.height / imageHeight;
-    final double scale = scaleX > scaleY ? scaleX : scaleY;
+    final scaleX = size.width / imageWidth;
+    final scaleY = size.height / imageHeight;
+    final scale = scaleX > scaleY ? scaleX : scaleY;
 
-    final double offsetX = (size.width - imageWidth * scale) / 2;
-    final double offsetY = (size.height - imageHeight * scale) / 2;
+    final offsetX = (size.width - imageWidth * scale) / 2;
+    final offsetY = (size.height - imageHeight * scale) / 2;
 
     for (final face in faces) {
       final contour = face.contours[FaceContourType.face];
@@ -50,8 +50,8 @@ class FacePainter extends CustomPainter {
 
       if (points.isEmpty) continue;
 
-      var firstPoint = points.first;
-      var (mappedX, mappedY) = _mapPoint(
+      final firstPoint = points.first;
+      final (mappedX, mappedY) = _mapPoint(
         firstPoint.x.toDouble(),
         firstPoint.y.toDouble(),
         size,
@@ -64,7 +64,7 @@ class FacePainter extends CustomPainter {
 
       for (var i = 1; i < points.length; i++) {
         final p = points[i];
-        var (x, y) = _mapPoint(
+        final (x, y) = _mapPoint(
           p.x.toDouble(),
           p.y.toDouble(),
           size,
@@ -75,7 +75,7 @@ class FacePainter extends CustomPainter {
         );
         path.lineTo(x, y);
       }
-      
+
       path.close();
 
       canvas.drawPath(path, paint);
@@ -91,8 +91,8 @@ class FacePainter extends CustomPainter {
     double offsetY,
     double imageWidth,
   ) {
-    double mappedX = x * scale + offsetX;
-    double mappedY = y * scale + offsetY;
+    var mappedX = x * scale + offsetX;
+    final mappedY = y * scale + offsetY;
 
     if (cameraLensDirection == CameraLensDirection.front) {
       final centerX = size.width / 2;

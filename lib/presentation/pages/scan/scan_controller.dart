@@ -2,13 +2,19 @@ import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:google_mlkit_document_scanner/google_mlkit_document_scanner.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_flow/core/utils/camera_utils.dart';
+import 'package:image_flow/data/models/scan_model.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class ScanController extends GetxController {
   CameraController? cameraController;
+  
   final RxList<Face> detectedFaces = <Face>[].obs;
+  final Rx<RecognizedText?> recognizedText = Rx<RecognizedText?>(null);
+  final Rx<ScanType> scanType = ScanType.face.obs;
   
   bool _isBusy = false;
   
@@ -17,6 +23,7 @@ class ScanController extends GetxController {
   List<CameraDescription> _cameras = [];
   
   late final FaceDetector _faceDetector;
+  late final TextRecognizer _textRecognizer;
 
   @override
   void onInit() {
@@ -27,6 +34,7 @@ class ScanController extends GetxController {
         enableClassification: true,
       ),
     );
+    _textRecognizer = TextRecognizer();
     _initializeCamera();
   }
 
@@ -34,7 +42,14 @@ class ScanController extends GetxController {
   void onClose() {
     cameraController?.dispose();
     _faceDetector.close();
+    _textRecognizer.close();
     super.onClose();
+  }
+
+  void setScanType(ScanType type) {
+    scanType.value = type;
+    detectedFaces.clear();
+    recognizedText.value = null;
   }
 
   Future<void> _initializeCamera() async {
@@ -93,7 +108,6 @@ class ScanController extends GetxController {
     if (_isBusy) return;
     _isBusy = true;
 
-
     Future<void>(() async {
       try {
         final camera = _cameras[_cameraIndex];
@@ -103,9 +117,27 @@ class ScanController extends GetxController {
         );
 
         final faces = await _faceDetector.processImage(inputImage);
-        detectedFaces.value = faces;
+        if (faces.isNotEmpty) {
+          if (scanType.value != ScanType.face) {
+            scanType.value = ScanType.face;
+          }
+          detectedFaces.value = faces;
+          recognizedText.value = null;
+        } else {
+          final text = await _textRecognizer.processImage(inputImage);
+          if (text.blocks.isNotEmpty) {
+             if (scanType.value != ScanType.document) {
+               scanType.value = ScanType.document;
+             }
+             recognizedText.value = text;
+             detectedFaces.clear();
+          } else {
+             detectedFaces.clear();
+             recognizedText.value = null;
+          }
+        }
       } catch (e) {
-        if (kDebugMode) print('Face detection error: $e');
+        if (kDebugMode) print('Detection error: $e');
       } finally {
         _isBusy = false;
       }
@@ -125,6 +157,44 @@ class ScanController extends GetxController {
   }
 
   Future<String?> captureImage() async {
+    if (scanType.value == ScanType.document) {
+      if (cameraController != null &&
+          cameraController!.value.isStreamingImages) {
+        await cameraController!.stopImageStream();
+      }
+
+      try {
+        final documentScanner = DocumentScanner(
+          options: DocumentScannerOptions(),
+        );
+
+        final result = await documentScanner.scanDocument();
+        await documentScanner.close();
+
+        if (result.images.isNotEmpty) {
+          if (cameraController != null &&
+              !cameraController!.value.isStreamingImages) {
+            await cameraController!.startImageStream(_processImageStream);
+          }
+          return result.images.first;
+        } else {
+          if (cameraController != null &&
+              !cameraController!.value.isStreamingImages) {
+            await cameraController!.startImageStream(_processImageStream);
+          }
+          return null;
+        }
+      } catch (e) {
+        Get.snackbar('Error', 'Document scan failed: $e');
+        if (cameraController != null &&
+            !cameraController!.value.isStreamingImages) {
+          await cameraController!.startImageStream(_processImageStream);
+        }
+        return null;
+      }
+    }
+
+
     if (cameraController == null || !cameraController!.value.isInitialized) {
       return null;
     }
