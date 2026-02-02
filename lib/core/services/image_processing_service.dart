@@ -15,6 +15,16 @@ class ImageProcessingService {
 
   final FileService _fileService;
 
+  Future<RecognizedText> detectText(File image) async {
+    final inputImage = InputImage.fromFile(image);
+    final textRecognizer = TextRecognizer();
+    try {
+      return await textRecognizer.processImage(inputImage);
+    } finally {
+      await textRecognizer.close();
+    }
+  }
+
 
   Future<File> processFaceFlow(
     File originalImage,
@@ -22,7 +32,6 @@ class ImageProcessingService {
     final faceDetector = FaceDetector(
       options: FaceDetectorOptions(
         enableContours: true,
-        enableClassification: false,
       ),
     );
 
@@ -37,7 +46,7 @@ class ImageProcessingService {
         final contour = face.contours[FaceContourType.face];
         if (contour != null) {
           final points = contour.points
-              .map((p) => img.Point(p.x.toInt(), p.y.toInt()))
+              .map((p) => img.Point(p.x, p.y))
               .toList();
           
           if (points.isNotEmpty) {
@@ -57,7 +66,7 @@ class ImageProcessingService {
     } catch (e) {
       throw AppException('Failed to process face flow: $e');
     } finally {
-      faceDetector.close();
+      await faceDetector.close();
     }
   }
 
@@ -120,7 +129,6 @@ Future<Uint8List> _isolateProcessFaces(_FaceProcessRequest request) async {
   image = img.bakeOrientation(image);
 
 
-  
   if (request.contours.isEmpty) {
 
     return img.encodeJpg(image);
@@ -134,17 +142,21 @@ Future<Uint8List> _isolateProcessFaces(_FaceProcessRequest request) async {
   img.fill(mask, color: img.ColorRgb8(0, 0, 0));
 
   for (final contour in request.contours) {
-     img.fillPolygon(mask, vertices: contour, color: img.ColorRgb8(255, 255, 255));
+     img.fillPolygon(
+       mask,
+       vertices: contour,
+       color: img.ColorRgb8(255, 255, 255),
+     );
   }
   
-
   for (final pixel in image) {
     final maskPixel = mask.getPixel(pixel.x, pixel.y);
     if (maskPixel.r > 0) {
       final grayPixel = grayscaleImage.getPixel(pixel.x, pixel.y);
-      pixel.r = grayPixel.r;
-      pixel.g = grayPixel.g;
-      pixel.b = grayPixel.b;
+      pixel
+        ..r = grayPixel.r
+        ..g = grayPixel.g
+        ..b = grayPixel.b;
     }
   }
 
