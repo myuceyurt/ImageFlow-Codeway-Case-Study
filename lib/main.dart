@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -7,6 +9,8 @@ import 'package:image_flow/core/theme/app_theme.dart';
 import 'package:image_flow/data/models/scan_model.dart';
 import 'package:image_flow/presentation/routes/app_pages.dart';
 import 'package:image_flow/presentation/routes/app_routes.dart';
+import 'package:image_flow/presentation/widgets/app_background.dart';
+import 'package:image_flow/presentation/widgets/looping_gradient_progress_bar.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -40,38 +44,89 @@ class ImageFlowApp extends StatelessWidget {
   }
 }
 
-class SplashScreen extends StatelessWidget {
+class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    Future.delayed(const Duration(seconds: 2), () {
-        Get.offNamed<void>(Routes.HOME);
-    });
+  State<SplashScreen> createState() => _SplashScreenState();
+}
 
+class _SplashScreenState extends State<SplashScreen> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer(const Duration(seconds: 2), () {
+      Get.offNamed<void>(Routes.home);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.camera_enhance_rounded,
-              size: 80,
-              color: AppTheme.tawnyOwl,
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'ImageFlow',
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    color: AppTheme.tawnyOwl,
-                  ),
-            ),
-            const SizedBox(height: 16),
-            const CircularProgressIndicator(
-              color: AppTheme.greatHornedOwl,
-            ),
-          ],
+      backgroundColor: Colors.transparent,
+      body: AppBackground(
+        child: SafeArea(
+          child: Column(
+            children: [
+              const Spacer(),
+              const _SplashLogo(),
+              const SizedBox(height: 28),
+              Text(
+                'ImageFlow',
+                style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.4,
+                    ),
+              ),
+              const SizedBox(height: 22),
+              const SizedBox(
+                width: 160,
+                child: LoopingGradientProgressBar(
+                  fillDuration: Duration(milliseconds: 900),
+                  fullHoldDuration: Duration(milliseconds: 160),
+                  blankDuration: Duration(milliseconds: 240),
+                ),
+              ),
+              const Spacer(),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+class _SplashLogo extends StatelessWidget {
+  const _SplashLogo();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 120,
+      height: 120,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: AppTheme.accentGradient,
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.burrowingOwl.withValues(alpha: 0.35),
+            blurRadius: 30,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: const Icon(
+        Icons.camera_enhance_rounded,
+        size: 56,
+        color: Colors.white,
       ),
     );
   }

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_flow/core/theme/app_theme.dart';
 import 'package:image_flow/presentation/pages/processing/processing_controller.dart';
+import 'package:image_flow/presentation/widgets/app_background.dart';
+import 'package:image_flow/presentation/widgets/looping_gradient_progress_bar.dart';
 
 class ProcessingView extends GetView<ProcessingController> {
   const ProcessingView({super.key});
@@ -10,149 +12,168 @@ class ProcessingView extends GetView<ProcessingController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Background Image (Blurred/Darkened)
-          Image.file(
-            File(controller.originalImagePath),
-            fit: BoxFit.cover,
-            color: Colors.black.withOpacity(0.6),
-            colorBlendMode: BlendMode.darken,
-          ),
-          
-          SafeArea(
+      backgroundColor: Colors.transparent,
+      body: AppBackground(
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 10, 22, 22),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Spacer(),
-                
-                // Central Progress/Status
-                Obx(() {
-                    if (controller.hasError.value) {
-                      return _buildErrorState();
-                    }
-                    return _buildProgressState();
-                }),
-                
-                const Spacer(),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    onPressed: controller.goBack,
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: Center(
+                    child: Obx(() {
+                      if (controller.hasError.value) {
+                        return _ErrorCard(
+                          message: controller.errorMessage ?? 'Unknown error',
+                          onRetry: controller.retry,
+                        );
+                      }
+                      return _ProgressCard(
+                        imagePath: controller.originalImagePath,
+                        status: controller.statusMessage.value,
+                      );
+                    }),
+                  ),
+                ),
               ],
             ),
           ),
-          
-          // Back button just in case
-           Positioned(
-            top: 50,
-            left: 20,
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
-              onPressed: controller.goBack,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
+}
 
-  Widget _buildProgressState() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 40),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppTheme.bgElevated,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: const [
-                 BoxShadow(
-                  color: Colors.black45,
-                  blurRadius: 20,
-                  spreadRadius: 5,
-                 ),
-              ],
-            ),
-            child: Column(
-              children: [
-                const SizedBox(
-                  width: 60,
-                  height: 60,
-                  child: CircularProgressIndicator(
-                    color: AppTheme.tawnyOwl,
-                    strokeWidth: 4,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Processing...',
-                  style: Get.textTheme.titleLarge?.copyWith(
-                    color: AppTheme.textPrimary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                LinearProgressIndicator(
-                  value: controller.progress.value,
-                  backgroundColor: AppTheme.bgSecondary,
-                  color: AppTheme.tawnyOwl,
-                  minHeight: 8,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  controller.statusMessage.value,
-                  textAlign: TextAlign.center,
-                  style: Get.textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+class _ProgressCard extends StatelessWidget {
+  const _ProgressCard({
+    required this.imagePath,
+    required this.status,
+  });
 
-  Widget _buildErrorState() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 40),
-      child: Card(
-        color: AppTheme.bgElevated,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline, color: Colors.red, size: 48),
-              const SizedBox(height: 16),
-              const Text(
-                'Something went wrong',
-                 style: TextStyle(
-                  color: AppTheme.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                controller.errorMessage ?? 'Unknown error',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: AppTheme.textSecondary),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: controller.retry,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.tawnyOwl,
-                ),
-                child: const Text('Try Again', style: TextStyle(color: Colors.white)),
+  final String imagePath;
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 132,
+          height: 132,
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: AppTheme.bgElevated.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(26),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: 24,
+                offset: const Offset(0, 16),
               ),
             ],
           ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: Image.file(
+              File(imagePath),
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => const Center(
+                child: Icon(
+                  Icons.image_rounded,
+                  color: AppTheme.textSecondary,
+                  size: 42,
+                ),
+              ),
+            ),
+          ),
         ),
+        const SizedBox(height: 22),
+        Text(
+          'Processing...',
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: AppTheme.textPrimary,
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+        const SizedBox(height: 22),
+        const LoopingGradientProgressBar(),
+        const SizedBox(height: 14),
+        Text(
+          status,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppTheme.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ErrorCard extends StatelessWidget {
+  const _ErrorCard({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: AppTheme.bgElevated.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(26),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.error_outline_rounded, color: Colors.red, size: 48),
+          const SizedBox(height: 14),
+          Text(
+            'Something went wrong',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: AppTheme.textPrimary,
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppTheme.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+          const SizedBox(height: 18),
+          ElevatedButton(
+            onPressed: onRetry,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.tawnyOwl,
+            ),
+            child: const Text(
+              'Try Again',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

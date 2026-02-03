@@ -50,12 +50,12 @@ class CameraUtils {
       case ImageFormatGroup.nv21:
         return InputImageFormat.nv21;
       case ImageFormatGroup.yuv420:
-        return InputImageFormat.nv21; // ML Kit often requires NV21 ...
+        return InputImageFormat.nv21;
       case ImageFormatGroup.bgra8888:
         return InputImageFormat.bgra8888;
       case ImageFormatGroup.jpeg:
       case ImageFormatGroup.unknown:
-        return InputImageFormat.nv21; 
+        return InputImageFormat.nv21;
     }
   }
 }

@@ -1,11 +1,13 @@
 import 'dart:io';
 import 'package:get/get.dart';
 import 'package:image_flow/core/services/image_processing_service.dart';
+import 'package:image_flow/core/services/pdf_service.dart';
 import 'package:image_flow/data/models/scan_model.dart';
 import 'package:image_flow/presentation/routes/app_routes.dart';
 
 class ProcessingController extends GetxController {
   final ImageProcessingService _imageProcessingService = Get.find();
+  final PdfService _pdfService = PdfService();
 
   late String originalImagePath;
   late ScanType scanType;
@@ -21,7 +23,6 @@ class ProcessingController extends GetxController {
     final args = Get.arguments as Map<String, dynamic>;
     originalImagePath = args['imagePath'] as String;
     
-    // Default to face if not provided, though it should be.
     if (args.containsKey('type')) {
        scanType = args['type'] as ScanType;
     } else {
@@ -38,56 +39,67 @@ class ProcessingController extends GetxController {
       statusMessage.value = 'Loading image...';
       
       final originalFile = File(originalImagePath);
-      if (!await originalFile.exists()) {
+      if (!originalFile.existsSync()) {
         throw Exception('Image file not found');
       }
 
-      // Simulate some steps for UX if needed, or update progress during actual processing if service supports it
-      await Future.delayed(const Duration(milliseconds: 500)); 
+      await Future<void>.delayed(const Duration(milliseconds: 350));
       progress.value = 0.3;
-      statusMessage.value = scanType == ScanType.face 
-          ? 'Detecting faces and contours...' 
+      statusMessage.value = scanType == ScanType.face
+          ? 'Detecting faces and contours...'
           : 'Scanning document text...';
 
       File processedFile;
+      File thumbnailFile;
       
-      // Auto-switch logic: If face mode, check for faces first.
       if (scanType == ScanType.face) {
         final hasFaces = await _imageProcessingService.hasFaces(originalFile);
         if (!hasFaces) {
-          // Switch to document mode if no faces found
           scanType = ScanType.document;
-          statusMessage.value = 'No faces detected. Switching to document scan...';
-          await Future.delayed(const Duration(milliseconds: 1000)); // Show message briefly
+          statusMessage.value =
+              'No faces detected. Switching to document scan...';
+          await Future<void>.delayed(const Duration(milliseconds: 900));
         }
       }
 
       if (scanType == ScanType.face) {
         statusMessage.value = 'Processing face...';
-        processedFile = await _imageProcessingService.processFaceFlow(originalFile);
+        processedFile = await _imageProcessingService.processFaceFlow(
+          originalFile,
+        );
+        thumbnailFile = processedFile;
       } else {
-        // Document Flow
         statusMessage.value = 'Recognizing text...';
         
-        // Note: For document flow, we might need text detection first if the service requires it separately
-        final detectedText = await _imageProcessingService.detectText(originalFile);
+        final detectedText = await _imageProcessingService.detectText(
+          originalFile,
+        );
         
         progress.value = 0.6;
         statusMessage.value = 'Enhancing document...';
         
-        processedFile = await _imageProcessingService.processDocumentFlow(originalFile, detectedText);
+        final enhancedImage = await _imageProcessingService.processDocumentFlow(
+          originalFile,
+          detectedText,
+        );
+        thumbnailFile = enhancedImage;
+
+        progress.value = 0.85;
+        statusMessage.value = 'Creating PDF...';
+        processedFile = await _pdfService.generatePdfFromImage(enhancedImage);
       }
 
       progress.value = 1.0;
       statusMessage.value = 'Processing complete!';
       
-      await Future.delayed(const Duration(milliseconds: 500)); // Show complete state briefly
+      await Future<void>.delayed(const Duration(milliseconds: 350));
 
-      Get.offNamed<void>(
-        Routes.RESULT,
+      await Get.offNamed<void>(
+        Routes.result,
         arguments: {
            'imagePath': originalImagePath,
            'processedFile': processedFile,
+           'thumbnailFile': thumbnailFile,
            'type': scanType,
         },
       );
@@ -99,8 +111,8 @@ class ProcessingController extends GetxController {
     }
   }
 
-  void retry() {
-    _startProcessing();
+  Future<void> retry() async {
+    await _startProcessing();
   }
 
   void goBack() {

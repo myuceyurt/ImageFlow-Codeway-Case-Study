@@ -221,28 +221,13 @@ class ScanController extends GetxController {
     final image = await picker.pickImage(source: ImageSource.gallery);
     
     if (image != null) {
-      if (scanType.value == ScanType.face) {
-        // If we are in face mode, we might want to check for faces in the picked image?
-        // Or just pass it to result/processing.
-        // For consistency with Home, let's route to Processing (not yet created but planned).
-        // However, existing code routes to RESULT manually.
-        // The plan says "Route to Routes.PROCESSING".
-        Get.toNamed<void>(
-            Routes.PROCESSING,
-             arguments: {
-              'imagePath': image.path,
-              'type': scanType.value,
-            },
-        );
-      } else {
-         Get.toNamed<void>(
-            Routes.PROCESSING,
-             arguments: {
-              'imagePath': image.path,
-              'type': scanType.value,
-            },
-        );
-      }
+      await Get.toNamed<void>(
+        Routes.processing,
+        arguments: {
+          'imagePath': image.path,
+          'type': scanType.value,
+        },
+      );
     }
   }
 }

@@ -5,7 +5,7 @@ class HistoryDetailBinding extends Bindings {
   @override
   void dependencies() {
     Get.lazyPut<HistoryDetailController>(
-      () => HistoryDetailController(),
+      HistoryDetailController.new,
     );
   }
 }

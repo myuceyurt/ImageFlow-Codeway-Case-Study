@@ -6,11 +6,24 @@ class AppTheme {
   static const Color burrowingOwl = Color(0xFFEA4F6C);
 
   static const Color bgPrimary = Color(0xFF12121A);
+  static const Color bgGradientTop = Color(0xFF1C1A2A);
   static const Color bgSecondary = Color(0xFF1A1A24);
   static const Color bgElevated = Color(0xFF22222E);
 
   static const Color textPrimary = Color(0xFFFFFFFF);
   static const Color textSecondary = Color(0xFFA0A0A8);
+
+  static const LinearGradient backgroundGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [bgGradientTop, bgPrimary],
+  );
+
+  static const LinearGradient accentGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [greatHornedOwl, tawnyOwl],
+  );
 
   static ThemeData get darkTheme {
     return ThemeData(

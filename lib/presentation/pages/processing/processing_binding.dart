@@ -5,7 +5,7 @@ class ProcessingBinding extends Bindings {
   @override
   void dependencies() {
     Get.lazyPut<ProcessingController>(
-      () => ProcessingController(),
+      ProcessingController.new,
     );
   }
 }

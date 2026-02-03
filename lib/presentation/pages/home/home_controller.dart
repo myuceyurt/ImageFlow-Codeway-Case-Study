@@ -1,9 +1,11 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:image_flow/core/theme/app_theme.dart';
 import 'package:image_flow/data/models/scan_model.dart';
 import 'package:image_flow/presentation/routes/app_routes.dart';
+import 'package:image_flow/presentation/widgets/choose_source_dialog.dart';
 import 'package:image_picker/image_picker.dart';
 
 class HomeController extends GetxController {
@@ -39,57 +41,63 @@ class HomeController extends GetxController {
     final image = await picker.pickImage(source: ImageSource.gallery);
     
     if (image != null) {
-      Get.toNamed<void>(
-        Routes.PROCESSING,
+      await Get.toNamed<void>(
+        Routes.processing,
         arguments: {
           'imagePath': image.path,
-          'type': ScanType.face, // Default to face, or let user decide? 
-          // For now, let's assume face flow for gallery import or prompt user.
-          // The requirement says "Automatically routes to appropriate flow (Face/Document)".
-          // So we might need to detect what it is. For now let's pass it to processing and let processing decide or default to face.
+          'type': ScanType.face,
         },
       );
     }
   }
 
   void showCaptureOptions() {
-    Get.bottomSheet(
-      Container(
-        padding: const EdgeInsets.all(16),
-        decoration: const BoxDecoration(
-          color: AppTheme.bgElevated,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+    Get.generalDialog<void>(
+      barrierDismissible: true,
+      barrierLabel: 'Choose Source',
+      barrierColor: Colors.transparent,
+      transitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (_, __, ___) => const SizedBox.shrink(),
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+        );
+        return Stack(
           children: [
-            ListTile(
-              leading: const Icon(Icons.camera_alt, color: AppTheme.tawnyOwl),
-              title: const Text('Camera', style: TextStyle(color: AppTheme.textPrimary)),
-              onTap: () {
-                Get.back<void>();
-                navigateToScan();
-              },
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => Get.back<void>(),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                  child: ColoredBox(
+                    color: Colors.black.withValues(alpha: 0.55),
+                  ),
+                ),
+              ),
             ),
-            ListTile(
-              leading: const Icon(Icons.photo_library, color: AppTheme.tawnyOwl),
-              title: const Text('Gallery', style: TextStyle(color: AppTheme.textPrimary)),
-              onTap: () {
-                Get.back<void>();
-                pickImageFromGallery();
-              },
+            FadeTransition(
+              opacity: curved,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.96, end: 1).animate(curved),
+                child: ChooseSourceDialog(
+                  onCamera: navigateToScan,
+                  onGallery: pickImageFromGallery,
+                ),
+              ),
             ),
           ],
-        ),
-      ),
+        );
+      },
     );
   }
 
-  void navigateToScan() {
-    Get.toNamed<void>(Routes.SCAN);
+  Future<void> navigateToScan() async {
+    await Get.toNamed<void>(Routes.scan);
   }
 
-  void navigateToDetail(ScanModel scan) {
-    Get.toNamed<void>(Routes.HISTORY_DETAIL, arguments: scan);
+  Future<void> navigateToDetail(ScanModel scan) async {
+    await Get.toNamed<void>(Routes.historyDetail, arguments: scan);
   }
 }

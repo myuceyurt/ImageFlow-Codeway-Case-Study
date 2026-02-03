@@ -2,7 +2,6 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_flow/core/theme/app_theme.dart';
 import 'package:image_flow/data/models/scan_model.dart';
 import 'package:image_flow/presentation/pages/scan/scan_controller.dart';
@@ -23,7 +22,9 @@ class ScanView extends StatelessWidget {
         builder: (_) {
           if (!controller.isInitialized ||
               controller.cameraController == null) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(
+              child: CircularProgressIndicator(color: AppTheme.tawnyOwl),
+            );
           }
 
           final camera = controller.cameraController!;
@@ -39,6 +40,22 @@ class ScanView extends StatelessWidget {
                 scale: scale,
                 child: Center(
                   child: CameraPreview(camera),
+                ),
+              ),
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.55),
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.75),
+                      ],
+                      stops: const [0.0, 0.45, 1.0],
+                    ),
+                  ),
                 ),
               ),
               Obx(() {
@@ -67,15 +84,70 @@ class ScanView extends StatelessWidget {
                 }
               }),
               Positioned(
-                bottom: 30,
-                left: 0,
-                right: 0,
+                top: 18,
+                left: 12,
+                right: 12,
                 child: Column(
                   children: [
-                    _buildModeSelector(controller),
-                    const SizedBox(height: 20),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        IconButton(
+                          onPressed: () => Get.back<void>(),
+                          icon: const Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const Spacer(),
+                        Obx(() {
+                          final label = controller.scanType.value ==
+                                  ScanType.face
+                              ? 'Face'
+                              : 'Document';
+                          final icon = controller.scanType.value ==
+                                  ScanType.face
+                              ? Icons.face_rounded
+                              : Icons.description_rounded;
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.bgElevated.withValues(alpha: 0.8),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(icon, size: 18, color: Colors.white),
+                                const SizedBox(width: 8),
+                                Text(
+                                  label,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(22, 12, 22, 22),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         IconButton(
                           onPressed: controller.pickImageFromGallery,
@@ -90,7 +162,7 @@ class ScanView extends StatelessWidget {
                             final path = await controller.captureImage();
                             if (path != null) {
                               await Get.toNamed<dynamic>(
-                                Routes.PROCESSING,
+                                Routes.processing,
                                 arguments: {
                                   'imagePath': path,
                                   'type': controller.scanType.value,
@@ -103,20 +175,26 @@ class ScanView extends StatelessWidget {
                             width: 80,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 4),
-                              gradient: const LinearGradient(
-                                colors: [
-                                  AppTheme.tawnyOwl,
-                                  AppTheme.greatHornedOwl,
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
+                              gradient: AppTheme.accentGradient,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.35),
+                                  blurRadius: 18,
+                                  offset: const Offset(0, 12),
+                                ),
+                              ],
                             ),
-                            child: const Icon(
-                              Icons.camera_alt,
-                              color: Colors.white,
-                              size: 36,
+                            child: Container(
+                              margin: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: Colors.black,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.camera_alt_rounded,
+                                color: Colors.white,
+                                size: 34,
+                              ),
                             ),
                           ),
                         ),
@@ -130,61 +208,12 @@ class ScanView extends StatelessWidget {
                         ),
                       ],
                     ),
-                  ],
-                ),
-              ),
-              Positioned(
-                top: 50,
-                left: 20,
-                child: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: () => Get.back<void>(),
+                  ),
                 ),
               ),
             ],
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildModeSelector(ScanController controller) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.black54,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Obx(() => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildModeButton(
-            context: Get.context!,
-            title: 'Face',
-            isSelected: controller.scanType.value == ScanType.face,
-          ),
-          const SizedBox(width: 16),
-          _buildModeButton(
-            context: Get.context!,
-            title: 'Document',
-            isSelected: controller.scanType.value == ScanType.document,
-          ),
-        ],
-      ),),
-    );
-  }
-
-  Widget _buildModeButton({
-    required BuildContext context,
-    required String title,
-    required bool isSelected,
-  }) {
-    return Text(
-      title,
-      style: TextStyle(
-        color: isSelected ? AppTheme.tawnyOwl : Colors.white70,
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        fontSize: 16,
       ),
     );
   }
