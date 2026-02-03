@@ -14,7 +14,7 @@ This project is an image processing application developed for Codeway case study
 - Exports processed documents as high-quality PDF files
 - Visual guide frame overlay for easy document positioning
 
-## ßKey Features
+## Key Features
 
 ### Batch Processing
 Process multiple images simultaneously with our advanced batch processing system:
