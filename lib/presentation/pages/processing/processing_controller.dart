@@ -47,21 +47,11 @@ class ProcessingController extends GetxController {
       progress.value = 0.3;
       statusMessage.value = scanType == ScanType.face
           ? 'Detecting faces and contours...'
-          : 'Scanning document text...';
+          : 'Detecting text...';
 
       File processedFile;
       File thumbnailFile;
       
-      if (scanType == ScanType.face) {
-        final hasFaces = await _imageProcessingService.hasFaces(originalFile);
-        if (!hasFaces) {
-          scanType = ScanType.document;
-          statusMessage.value =
-              'No faces detected. Switching to document scan...';
-          await Future<void>.delayed(const Duration(milliseconds: 900));
-        }
-      }
-
       if (scanType == ScanType.face) {
         statusMessage.value = 'Processing face...';
         processedFile = await _imageProcessingService.processFaceFlow(
@@ -69,19 +59,17 @@ class ProcessingController extends GetxController {
         );
         thumbnailFile = processedFile;
       } else {
-        statusMessage.value = 'Recognizing text...';
-        
-        final detectedText = await _imageProcessingService.detectText(
+        statusMessage.value = 'Detecting text...';
+
+        await _imageProcessingService.detectText(
           originalFile,
         );
         
         progress.value = 0.6;
         statusMessage.value = 'Enhancing document...';
         
-        final enhancedImage = await _imageProcessingService.processDocumentFlow(
-          originalFile,
-          detectedText,
-        );
+        final enhancedImage =
+            await _imageProcessingService.processDocumentFlow(originalFile);
         thumbnailFile = enhancedImage;
 
         progress.value = 0.85;

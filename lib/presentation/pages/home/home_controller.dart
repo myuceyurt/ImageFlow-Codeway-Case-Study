@@ -1,9 +1,11 @@
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:image_flow/data/models/scan_model.dart';
+import 'package:image_flow/core/services/image_processing_service.dart';
 import 'package:image_flow/presentation/routes/app_routes.dart';
 import 'package:image_flow/presentation/widgets/choose_source_dialog.dart';
 import 'package:image_picker/image_picker.dart';
@@ -41,11 +43,31 @@ class HomeController extends GetxController {
     final image = await picker.pickImage(source: ImageSource.gallery);
     
     if (image != null) {
+      final processingService = Get.find<ImageProcessingService>();
+      final file = File(image.path);
+      final hasFaces = await processingService.hasFaces(file);
+      if (hasFaces) {
+        await Get.toNamed<void>(
+          Routes.processing,
+          arguments: {
+            'imagePath': image.path,
+            'type': ScanType.face,
+          },
+        );
+        return;
+      }
+
+      final text = await processingService.detectText(file);
+      if (text.blocks.isEmpty) {
+        Get.snackbar('Error', 'No face or document detected');
+        return;
+      }
+
       await Get.toNamed<void>(
         Routes.processing,
         arguments: {
           'imagePath': image.path,
-          'type': ScanType.face,
+          'type': ScanType.document,
         },
       );
     }

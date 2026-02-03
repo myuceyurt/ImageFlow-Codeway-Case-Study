@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -5,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:google_mlkit_document_scanner/google_mlkit_document_scanner.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:image_flow/core/services/image_processing_service.dart';
 import 'package:image_flow/core/utils/camera_utils.dart';
 import 'package:image_flow/data/models/scan_model.dart';
 import 'package:image_flow/presentation/routes/app_routes.dart';
@@ -26,6 +29,7 @@ class ScanController extends GetxController {
   
   late final FaceDetector _faceDetector;
   late final TextRecognizer _textRecognizer;
+  late final ImageProcessingService _imageProcessingService;
 
   @override
   void onInit() {
@@ -37,6 +41,7 @@ class ScanController extends GetxController {
       ),
     );
     _textRecognizer = TextRecognizer();
+    _imageProcessingService = Get.find<ImageProcessingService>();
     _initializeCamera();
   }
 
@@ -165,13 +170,26 @@ class ScanController extends GetxController {
         await cameraController!.stopImageStream();
       }
 
+      DocumentScanner? documentScanner;
       try {
-        final documentScanner = DocumentScanner(
-          options: DocumentScannerOptions(),
+        documentScanner = DocumentScanner(
+          options: DocumentScannerOptions(
+            documentFormat: DocumentFormat.jpeg,
+            pageLimit: 1,
+            mode: ScannerMode.full,
+            isGalleryImport: false,
+          ),
         );
 
         final result = await documentScanner.scanDocument();
-        await documentScanner.close();
+        var closed = false;
+        try {
+          await documentScanner.close();
+          closed = true;
+        } catch (_) {}
+        if (closed) {
+          documentScanner = null;
+        }
 
         if (result.images.isNotEmpty) {
           if (cameraController != null &&
@@ -193,6 +211,12 @@ class ScanController extends GetxController {
           await cameraController!.startImageStream(_processImageStream);
         }
         return null;
+      } finally {
+        if (documentScanner != null) {
+          try {
+            await documentScanner!.close();
+          } catch (_) {}
+        }
       }
     }
 
@@ -221,13 +245,57 @@ class ScanController extends GetxController {
     final image = await picker.pickImage(source: ImageSource.gallery);
     
     if (image != null) {
-      await Get.toNamed<void>(
-        Routes.processing,
-        arguments: {
-          'imagePath': image.path,
-          'type': scanType.value,
-        },
-      );
+      if (cameraController != null &&
+          cameraController!.value.isStreamingImages) {
+        await cameraController!.stopImageStream();
+      }
+
+      try {
+        final file = File(image.path);
+        final hasFaces = await _imageProcessingService.hasFaces(file);
+        if (hasFaces) {
+          if (cameraController != null &&
+              !cameraController!.value.isStreamingImages) {
+            await cameraController!.startImageStream(_processImageStream);
+          }
+          await Get.toNamed<void>(
+            Routes.processing,
+            arguments: {
+              'imagePath': image.path,
+              'type': ScanType.face,
+            },
+          );
+          return;
+        }
+
+        final text = await _imageProcessingService.detectText(file);
+        if (text.blocks.isEmpty) {
+          Get.snackbar('Error', 'No face or document detected');
+          if (cameraController != null &&
+              !cameraController!.value.isStreamingImages) {
+            await cameraController!.startImageStream(_processImageStream);
+          }
+          return;
+        }
+
+        if (cameraController != null &&
+            !cameraController!.value.isStreamingImages) {
+          await cameraController!.startImageStream(_processImageStream);
+        }
+        await Get.toNamed<void>(
+          Routes.processing,
+          arguments: {
+            'imagePath': image.path,
+            'type': ScanType.document,
+          },
+        );
+      } catch (e) {
+        Get.snackbar('Error', 'Gallery processing failed: $e');
+        if (cameraController != null &&
+            !cameraController!.value.isStreamingImages) {
+          await cameraController!.startImageStream(_processImageStream);
+        }
+      }
     }
   }
 }

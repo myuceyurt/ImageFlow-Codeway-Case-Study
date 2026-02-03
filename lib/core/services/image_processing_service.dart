@@ -1,8 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math' as math;
-import 'dart:ui';
-
 import 'package:flutter/foundation.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
@@ -91,28 +88,13 @@ class ImageProcessingService {
 
   Future<File> processDocumentFlow(
     File originalImage,
-    RecognizedText detectedText,
   ) async {
     try {
       final imageBytes = await originalImage.readAsBytes();
 
-
-      Rect? globalRect;
-      for (final block in detectedText.blocks) {
-        if (globalRect == null) {
-          globalRect = block.boundingBox;
-        } else {
-          globalRect = globalRect.expandToInclude(block.boundingBox);
-        }
-      }
-
-      if (globalRect == null) {
-        throw const AppException('No text detected to process.');
-      }
-
       final processedBytes = await compute(
         _isolateProcessDocument,
-        _DocProcessRequest(imageBytes, globalRect),
+        _DocProcessRequest(imageBytes),
       );
 
       return await _fileService.saveImageFile(processedBytes);
@@ -131,9 +113,8 @@ class _FaceProcessRequest {
 }
 
 class _DocProcessRequest {
-  _DocProcessRequest(this.imageBytes, this.cropRect);
+  _DocProcessRequest(this.imageBytes);
   final Uint8List imageBytes;
-  final Rect cropRect;
 }
 
 
@@ -187,29 +168,10 @@ Future<Uint8List> _isolateProcessDocument(_DocProcessRequest request) async {
   final decodedImage = img.decodeImage(request.imageBytes);
   if (decodedImage == null) throw Exception('Failed to decode image');
 
-
   final orientedImage = img.bakeOrientation(decodedImage);
 
-
-  var x = request.cropRect.left.toInt();
-  var y = request.cropRect.top.toInt();
-  var w = request.cropRect.width.toInt();
-  var h = request.cropRect.height.toInt();
-
-
-  const padding = 20;
-  x = math.max(0, x - padding);
-  y = math.max(0, y - padding);
-  w = math.min(orientedImage.width - x, w + (padding * 2));
-  h = math.min(orientedImage.height - y, h + (padding * 2));
-
-  if (w <= 0 || h <= 0) throw Exception('Invalid crop dimensions');
-
-  final docCrop = img.copyCrop(orientedImage, x: x, y: y, width: w, height: h);
-
-
   final enhancedDoc = img.adjustColor(
-    docCrop,
+    orientedImage,
     contrast: 1.2,
     brightness: 1.1,
   );
