@@ -100,15 +100,17 @@ class _AnimatedBackgroundState extends State<_AnimatedBackground>
       animation: _controller,
       builder: (context, _) {
         final t = _controller.value * 2 * math.pi;
-        final glow1 = const Offset(-140, -220);
-        final glow2 = const Offset(320, 120);
-        final glow3 = const Offset(-180, 520);
+        const glow1 = Offset(-140, -220);
+        const glow2 = Offset(320, 120);
+        const glow3 = Offset(-180, 520);
 
         return Stack(
           children: [
             const Positioned.fill(
               child: DecoratedBox(
-                decoration: BoxDecoration(gradient: AppTheme.backgroundGradient),
+                decoration: BoxDecoration(
+                  gradient: AppTheme.backgroundGradient,
+                ),
               ),
             ),
             _AnimatedGlow(

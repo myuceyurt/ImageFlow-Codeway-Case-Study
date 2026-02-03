@@ -173,12 +173,7 @@ class ScanController extends GetxController {
       DocumentScanner? documentScanner;
       try {
         documentScanner = DocumentScanner(
-          options: DocumentScannerOptions(
-            documentFormat: DocumentFormat.jpeg,
-            pageLimit: 1,
-            mode: ScannerMode.full,
-            isGalleryImport: false,
-          ),
+          options: DocumentScannerOptions(),
         );
 
         final result = await documentScanner.scanDocument();
@@ -212,9 +207,10 @@ class ScanController extends GetxController {
         }
         return null;
       } finally {
-        if (documentScanner != null) {
+        final scanner = documentScanner;
+        if (scanner != null) {
           try {
-            await documentScanner!.close();
+            await scanner.close();
           } catch (_) {}
         }
       }

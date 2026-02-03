@@ -241,9 +241,9 @@ class _BeforeAfterSliderState extends State<_BeforeAfterSlider> {
           aspectRatio: 1,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(18),
-            child: ColoredBox(
+            child: const ColoredBox(
               color: AppTheme.bgSecondary,
-              child: const Center(
+              child: Center(
                 child: SizedBox(
                   width: 140,
                   child: LoopingGradientProgressBar(),
@@ -313,7 +313,6 @@ class _BeforeAfterSliderState extends State<_BeforeAfterSlider> {
                           ],
                           border: Border.all(
                             color: Colors.white.withValues(alpha: 0.7),
-                            width: 1,
                           ),
                         ),
                         child: const Row(
@@ -333,12 +332,12 @@ class _BeforeAfterSliderState extends State<_BeforeAfterSlider> {
                         ),
                       ),
                     ),
-                    Positioned(
+                    const Positioned(
                       left: 12,
                       top: 12,
                       child: _CompareLabel(text: 'Before'),
                     ),
-                    Positioned(
+                    const Positioned(
                       right: 12,
                       top: 12,
                       child: _CompareLabel(text: 'After'),

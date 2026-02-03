@@ -3,9 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:image_flow/core/services/batch_queue_service.dart';
+import 'package:image_flow/core/services/batch_repository.dart';
 import 'package:image_flow/core/services/file_service.dart';
 import 'package:image_flow/core/services/image_processing_service.dart';
+import 'package:image_flow/core/services/pdf_service.dart';
 import 'package:image_flow/core/theme/app_theme.dart';
+import 'package:image_flow/data/models/batch_item.dart';
+import 'package:image_flow/data/models/batch_job.dart';
 import 'package:image_flow/data/models/scan_model.dart';
 import 'package:image_flow/presentation/routes/app_pages.dart';
 import 'package:image_flow/presentation/routes/app_routes.dart';
@@ -18,11 +23,34 @@ void main() async {
   await Hive.initFlutter();
   Hive
     ..registerAdapter(ScanModelAdapter())
-    ..registerAdapter(ScanTypeAdapter());
+    ..registerAdapter(ScanTypeAdapter())
+    ..registerAdapter(BatchJobAdapter())
+    ..registerAdapter(BatchItemAdapter())
+    ..registerAdapter(BatchIntentAdapter())
+    ..registerAdapter(BatchItemStatusAdapter())
+    ..registerAdapter(BatchJobStatusAdapter());
   await Hive.openBox<ScanModel>('scans');
+  await Hive.openBox<BatchJob>('batch_jobs');
+  await Hive.openBox<BatchItem>('batch_items');
   
   final fileService = Get.put(FileService());
   Get.put(ImageProcessingService(fileService));
+  final batchRepository = Get.put(
+    BatchRepository(
+      jobBox: Hive.box<BatchJob>('batch_jobs'),
+      itemBox: Hive.box<BatchItem>('batch_items'),
+    ),
+  );
+  final batchQueue = Get.put(
+    BatchQueueService(
+      repository: batchRepository,
+      fileService: fileService,
+      imageProcessingService: Get.find<ImageProcessingService>(),
+      pdfService: PdfService(),
+    ),
+  );
+  await batchQueue.restoreIncompleteBatches();
+  await batchQueue.cleanupStaleBatches(const Duration(days: 2));
 
   runApp(const ImageFlowApp());
 }
@@ -90,7 +118,6 @@ class _SplashScreenState extends State<SplashScreen> {
               const SizedBox(
                 width: 160,
                 child: LoopingGradientProgressBar(
-                  fillDuration: Duration(milliseconds: 900),
                   fullHoldDuration: Duration(milliseconds: 160),
                   blankDuration: Duration(milliseconds: 240),
                 ),

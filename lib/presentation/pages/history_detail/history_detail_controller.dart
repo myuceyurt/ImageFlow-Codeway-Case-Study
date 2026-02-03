@@ -34,8 +34,7 @@ class HistoryDetailController extends GetxController {
 
   Future<void> deleteScan() async {
     await scan.delete();
-    Get.back<void>();
-    Get.offAllNamed<void>(Routes.home);
+    await Get.offAllNamed<void>(Routes.home);
     Get.snackbar('Success', 'Scan deleted');
   }
 }

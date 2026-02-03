@@ -62,7 +62,10 @@ class HomeView extends GetView<HomeController> {
                     padding: const EdgeInsets.symmetric(horizontal: 22),
                     child: Text(
                       'ImageFlow',
-                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineLarge
+                          ?.copyWith(
                             fontSize: 30,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 0.3,
@@ -121,7 +124,8 @@ class HomeView extends GetView<HomeController> {
                             scan: scan,
                             onOpen: () async =>
                                 controller.navigateToDetail(scan),
-                            onDelete: () async => controller.deleteScan(scan),
+                            onDelete: () async =>
+                                controller.confirmDelete(scan),
                           );
                         },
                       );
@@ -183,7 +187,6 @@ class _GradientFab extends StatelessWidget {
                 child: InkResponse(
                   onTap: onTap,
                   containedInkWell: true,
-                  highlightShape: BoxShape.circle,
                   child: const Center(
                     child: Icon(Icons.add, color: Colors.white, size: 32),
                   ),

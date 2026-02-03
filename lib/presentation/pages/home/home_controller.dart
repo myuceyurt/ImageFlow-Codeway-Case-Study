@@ -4,11 +4,15 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:image_flow/data/models/scan_model.dart';
+import 'package:image_flow/core/services/batch_queue_service.dart';
 import 'package:image_flow/core/services/image_processing_service.dart';
+import 'package:image_flow/data/models/batch_job.dart';
+import 'package:image_flow/data/models/scan_model.dart';
 import 'package:image_flow/presentation/routes/app_routes.dart';
+import 'package:image_flow/presentation/widgets/batch_intent_dialog.dart';
 import 'package:image_flow/presentation/widgets/choose_source_dialog.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class HomeController extends GetxController {
   late Box<ScanModel> _box;
@@ -36,41 +40,122 @@ class HomeController extends GetxController {
 
   Future<void> deleteScan(ScanModel scan) async {
     await scan.delete();
+    Get.snackbar('Success', 'Scan deleted');
+  }
+
+  Future<void> confirmDelete(ScanModel scan) async {
+    await Get.dialog<void>(
+      AlertDialog(
+        title: const Text('Delete Scan'),
+        content: const Text(
+          'Are you sure you want to delete this scan? '
+          'This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back<void>(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Get.back<void>();
+              await deleteScan(scan);
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> pickImageFromGallery() async {
+    final hasPermission = await _requestGalleryPermission();
+    if (!hasPermission) {
+      Get.snackbar('Permission', 'Gallery access is required.');
+      return;
+    }
+
     final picker = ImagePicker();
-    final image = await picker.pickImage(source: ImageSource.gallery);
-    
-    if (image != null) {
-      final processingService = Get.find<ImageProcessingService>();
-      final file = File(image.path);
-      final hasFaces = await processingService.hasFaces(file);
-      if (hasFaces) {
-        await Get.toNamed<void>(
-          Routes.processing,
-          arguments: {
-            'imagePath': image.path,
-            'type': ScanType.face,
-          },
-        );
-        return;
-      }
+    final images = await picker.pickMultiImage();
+    if (images.isEmpty) return;
 
-      final text = await processingService.detectText(file);
-      if (text.blocks.isEmpty) {
-        Get.snackbar('Error', 'No face or document detected');
-        return;
-      }
+    if (images.length == 1) {
+      await _processSingleImage(images.first.path);
+      return;
+    }
 
+    final intent = await Get.dialog<BatchIntent>(
+      const BatchIntentDialog(),
+    );
+    if (intent == null) return;
+
+    final queue = Get.find<BatchQueueService>();
+    final limit = queue.maxSelection;
+    final limited = images.take(limit).toList();
+    if (images.length > limited.length) {
+      Get.snackbar('Limit', 'You can select up to $limit images.');
+    }
+
+    final batchId = await queue.startBatch(
+      limited.map((e) => e.path).toList(),
+      intent,
+    );
+    if (batchId == null) {
+      Get.snackbar('Batch busy', 'A batch is already running.');
+      return;
+    }
+
+    await Get.toNamed<void>(
+      Routes.batchProcessing,
+      arguments: {'batchId': batchId},
+    );
+  }
+
+  Future<void> _processSingleImage(String path) async {
+    final processingService = Get.find<ImageProcessingService>();
+    final file = File(path);
+    final hasFaces = await processingService.hasFaces(file);
+    if (hasFaces) {
       await Get.toNamed<void>(
         Routes.processing,
         arguments: {
-          'imagePath': image.path,
-          'type': ScanType.document,
+          'imagePath': path,
+          'type': ScanType.face,
         },
       );
+      return;
     }
+
+    final text = await processingService.detectText(file);
+    if (text.blocks.isEmpty) {
+      Get.snackbar('Error', 'No face or document detected');
+      return;
+    }
+
+    await Get.toNamed<void>(
+      Routes.processing,
+      arguments: {
+        'imagePath': path,
+        'type': ScanType.document,
+      },
+    );
+  }
+
+  Future<bool> _requestGalleryPermission() async {
+    PermissionStatus status;
+    if (Platform.isIOS) {
+      status = await Permission.photos.request();
+    } else {
+      await Permission.notification.request();
+      status = await Permission.photos.request();
+      if (!status.isGranted) {
+        status = await Permission.storage.request();
+      }
+    }
+    if (status.isPermanentlyDenied) {
+      await openAppSettings();
+    }
+    return status.isGranted;
   }
 
   void showCaptureOptions() {
