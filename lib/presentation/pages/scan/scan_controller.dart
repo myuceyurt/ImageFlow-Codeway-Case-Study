@@ -1,15 +1,14 @@
 import 'dart:io';
 
 import 'package:camera/camera.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:google_mlkit_document_scanner/google_mlkit_document_scanner.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:image_flow/core/errors/app_exception.dart';
+import 'package:image_flow/core/services/detection_service.dart';
 import 'package:image_flow/core/services/image_processing_service.dart';
-import 'package:image_flow/core/utils/camera_utils.dart';
 import 'package:image_flow/data/models/scan_model.dart';
 import 'package:image_flow/presentation/routes/app_routes.dart';
 import 'package:image_picker/image_picker.dart';
@@ -29,8 +28,7 @@ class ScanController extends GetxController {
   int _cameraIndex = 0;
   List<CameraDescription> _cameras = [];
   
-  late final FaceDetector _faceDetector;
-  late final TextRecognizer _textRecognizer;
+  late final DetectionService _detectionService;
   late final ImageProcessingService _imageProcessingService;
 
   @override
@@ -41,13 +39,7 @@ class ScanController extends GetxController {
       documentOnly = true;
       scanType.value = ScanType.document;
     }
-    _faceDetector = FaceDetector(
-      options: FaceDetectorOptions(
-        enableContours: true,
-        enableClassification: true,
-      ),
-    );
-    _textRecognizer = TextRecognizer();
+    _detectionService = Get.find<DetectionService>();
     _imageProcessingService = Get.find<ImageProcessingService>();
     _initializeCamera();
   }
@@ -55,8 +47,6 @@ class ScanController extends GetxController {
   @override
   void onClose() {
     cameraController?.dispose();
-    _faceDetector.close();
-    _textRecognizer.close();
     super.onClose();
   }
 
@@ -68,11 +58,19 @@ class ScanController extends GetxController {
 
   Future<void> _initializeCamera() async {
     final status = await Permission.camera.request();
-    if (status.isPermanentlyDenied || status.isDenied) {
-      await Get.dialog<void>(
-        const Center(
-          child: Text('Camera permission required. Please enable in settings.'),
-        ),
+    if (status.isPermanentlyDenied) {
+      Get.snackbar(
+        'Permission Required',
+        'Camera permission is permanently denied. Please enable it in settings.',
+        duration: const Duration(seconds: 4),
+      );
+      return;
+    }
+    if (status.isDenied) {
+      Get.snackbar(
+        'Permission Required',
+        'Camera permission is required to scan.',
+        duration: const Duration(seconds: 3),
       );
       return;
     }
@@ -80,8 +78,7 @@ class ScanController extends GetxController {
     try {
       _cameras = await availableCameras();
       if (_cameras.isEmpty) {
-        Get.snackbar('Error', 'No cameras found on device');
-        return;
+        throw const CameraPermissionException('No cameras found on device');
       }
       
       _cameraIndex = _cameras.indexWhere(
@@ -90,8 +87,10 @@ class ScanController extends GetxController {
       if (_cameraIndex == -1) _cameraIndex = 0;
 
       await _startCamera(_cameras[_cameraIndex]);
+    } on CameraPermissionException catch (e) {
+      Get.snackbar('Camera Error', e.message);
     } catch (e) {
-      Get.snackbar('Error', 'Failed to initialize camera: $e');
+      Get.snackbar('Error', 'Failed to initialize camera');
     }
   }
 
@@ -113,8 +112,10 @@ class ScanController extends GetxController {
       }
       
       await controller.startImageStream(_processImageStream);
+    } on CameraPermissionException catch (e) {
+      Get.snackbar('Camera Error', e.message);
     } catch (e) {
-      Get.snackbar('Error', 'Camera error: $e');
+      Get.snackbar('Error', 'Camera initialization failed');
     }
   }
 
@@ -125,41 +126,31 @@ class ScanController extends GetxController {
     Future<void>(() async {
       try {
         final camera = _cameras[_cameraIndex];
-        final inputImage = CameraUtils.convertCameraImageToInputImage(
+        final result = await _detectionService.detectFromCameraImage(
           image,
           camera,
+          documentOnly: documentOnly,
         );
-        if (documentOnly) {
-          final text = await _textRecognizer.processImage(inputImage);
-          recognizedText.value = text.blocks.isNotEmpty ? text : null;
-          detectedFaces.clear();
+
+        if (result.hasFaces) {
+          if (scanType.value != ScanType.face) {
+            scanType.value = ScanType.face;
+          }
+          detectedFaces.value = result.faces;
+          recognizedText.value = null;
+        } else if (result.hasText) {
           if (scanType.value != ScanType.document) {
             scanType.value = ScanType.document;
           }
+          recognizedText.value = result.text;
+          detectedFaces.clear();
         } else {
-          final faces = await _faceDetector.processImage(inputImage);
-          if (faces.isNotEmpty) {
-            if (scanType.value != ScanType.face) {
-              scanType.value = ScanType.face;
-            }
-            detectedFaces.value = faces;
-            recognizedText.value = null;
-          } else {
-            final text = await _textRecognizer.processImage(inputImage);
-            if (text.blocks.isNotEmpty) {
-              if (scanType.value != ScanType.document) {
-                scanType.value = ScanType.document;
-              }
-              recognizedText.value = text;
-              detectedFaces.clear();
-            } else {
-              detectedFaces.clear();
-              recognizedText.value = null;
-            }
-          }
+          detectedFaces.clear();
+          recognizedText.value = null;
         }
-      } catch (e) {
-        if (kDebugMode) print('Detection error: $e');
+      } on DetectionException {
+        detectedFaces.clear();
+        recognizedText.value = null;
       } finally {
         _isBusy = false;
       }
@@ -212,8 +203,8 @@ class ScanController extends GetxController {
         return null;
       } on MissingPluginException {
         Get.snackbar(
-          'Error',
-          'Document scanner plugin not loaded. Please fully restart the app or reinstall after flutter clean.',
+          'Plugin Error',
+          'Document scanner not available. Please restart the app.',
         );
         if (cameraController != null &&
             !cameraController!.value.isStreamingImages) {
@@ -221,7 +212,7 @@ class ScanController extends GetxController {
         }
         return null;
       } catch (e) {
-        Get.snackbar('Error', 'Document scan failed: $e');
+        Get.snackbar('Scan Failed', 'Document scanning failed. Please try again.');
         if (cameraController != null &&
             !cameraController!.value.isStreamingImages) {
           await cameraController!.startImageStream(_processImageStream);
@@ -252,10 +243,11 @@ class ScanController extends GetxController {
       
       return [xFile.path];
     } catch (e) {
-      Get.snackbar('Error', 'Capture failed: $e');
+      Get.snackbar('Capture Failed', 'Failed to capture image. Please try again.');
       return null;
     }
   }
+
   Future<void> pickImageFromGallery() async {
     final picker = ImagePicker();
     final image = await picker.pickImage(source: ImageSource.gallery);
@@ -271,18 +263,12 @@ class ScanController extends GetxController {
         if (documentOnly) {
           final text = await _imageProcessingService.detectText(file);
           if (text.blocks.isEmpty) {
-            Get.snackbar('Error', 'No document detected');
-            if (cameraController != null &&
-                !cameraController!.value.isStreamingImages) {
-              await cameraController!.startImageStream(_processImageStream);
-            }
+            Get.snackbar('No Document', 'No text detected in the image.');
+            await _restartCameraStream();
             return;
           }
 
-          if (cameraController != null &&
-              !cameraController!.value.isStreamingImages) {
-            await cameraController!.startImageStream(_processImageStream);
-          }
+          await _restartCameraStream();
           await Get.toNamed<void>(
             Routes.processing,
             arguments: {
@@ -296,10 +282,7 @@ class ScanController extends GetxController {
         }
         final hasFaces = await _imageProcessingService.hasFaces(file);
         if (hasFaces) {
-          if (cameraController != null &&
-              !cameraController!.value.isStreamingImages) {
-            await cameraController!.startImageStream(_processImageStream);
-          }
+          await _restartCameraStream();
           await Get.toNamed<void>(
             Routes.processing,
             arguments: {
@@ -312,18 +295,12 @@ class ScanController extends GetxController {
 
         final text = await _imageProcessingService.detectText(file);
         if (text.blocks.isEmpty) {
-          Get.snackbar('Error', 'No face or document detected');
-          if (cameraController != null &&
-              !cameraController!.value.isStreamingImages) {
-            await cameraController!.startImageStream(_processImageStream);
-          }
+          Get.snackbar('Nothing Detected', 'No face or document found in the image.');
+          await _restartCameraStream();
           return;
         }
 
-        if (cameraController != null &&
-            !cameraController!.value.isStreamingImages) {
-          await cameraController!.startImageStream(_processImageStream);
-        }
+        await _restartCameraStream();
         await Get.toNamed<void>(
           Routes.processing,
           arguments: {
@@ -333,13 +310,20 @@ class ScanController extends GetxController {
             'startNewSession': true,
           },
         );
+      } on DetectionException catch (e) {
+        Get.snackbar('Detection Failed', e.message);
+        await _restartCameraStream();
       } catch (e) {
-        Get.snackbar('Error', 'Gallery processing failed: $e');
-        if (cameraController != null &&
-            !cameraController!.value.isStreamingImages) {
-          await cameraController!.startImageStream(_processImageStream);
-        }
+        Get.snackbar('Error', 'Failed to process image from gallery.');
+        await _restartCameraStream();
       }
+    }
+  }
+
+  Future<void> _restartCameraStream() async {
+    if (cameraController != null &&
+        !cameraController!.value.isStreamingImages) {
+      await cameraController!.startImageStream(_processImageStream);
     }
   }
 }

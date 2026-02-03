@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:get/get.dart';
+import 'package:image_flow/core/errors/app_exception.dart';
 import 'package:image_flow/core/services/image_processing_service.dart';
 import 'package:image_flow/core/services/pdf_service.dart';
 import 'package:image_flow/data/models/scan_model.dart';
@@ -9,7 +10,7 @@ import 'package:uuid/uuid.dart';
 
 class ProcessingController extends GetxController {
   final ImageProcessingService _imageProcessingService = Get.find();
-  final PdfService _pdfService = PdfService();
+  final PdfService _pdfService = Get.find();
   late final DocumentSessionController _documentSession;
   final Uuid _uuid = const Uuid();
 
@@ -67,7 +68,7 @@ class ProcessingController extends GetxController {
       if (scanType == ScanType.face) {
         final originalFile = File(originalImagePath);
         if (!originalFile.existsSync()) {
-          throw Exception('Image file not found');
+          throw const StorageException('Image file not found');
         }
         statusMessage.value = 'Processing face...';
         processedFile = await _imageProcessingService.processFaceFlow(
@@ -84,7 +85,7 @@ class ProcessingController extends GetxController {
             final path = originalImagePaths[index];
             final originalFile = File(path);
             if (!originalFile.existsSync()) {
-              throw Exception('Image file not found');
+              throw const StorageException('Image file not found');
             }
 
             statusMessage.value = 'Detecting text...';
@@ -124,7 +125,7 @@ class ProcessingController extends GetxController {
         } else {
           final originalFile = File(originalImagePath);
           if (!originalFile.existsSync()) {
-            throw Exception('Image file not found');
+            throw const StorageException('Image file not found');
           }
           statusMessage.value = 'Detecting text...';
           await _imageProcessingService.detectText(
@@ -159,10 +160,22 @@ class ProcessingController extends GetxController {
         },
       );
 
+    } on StorageException catch (e) {
+      hasError.value = true;
+      errorMessage = e.message;
+      statusMessage.value = 'File not found.';
+    } on ProcessingException catch (e) {
+      hasError.value = true;
+      errorMessage = e.message;
+      statusMessage.value = 'Processing failed.';
+    } on AppException catch (e) {
+      hasError.value = true;
+      errorMessage = e.message;
+      statusMessage.value = 'Processing failed.';
     } catch (e) {
       hasError.value = true;
       errorMessage = e.toString();
-      statusMessage.value = 'Processing failed.';
+      statusMessage.value = 'An unexpected error occurred.';
     }
   }
 

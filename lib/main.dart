@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:image_flow/core/services/batch_queue_service.dart';
 import 'package:image_flow/core/services/batch_repository.dart';
+import 'package:image_flow/core/services/detection_service.dart';
 import 'package:image_flow/core/services/file_service.dart';
 import 'package:image_flow/core/services/image_processing_service.dart';
 import 'package:image_flow/core/services/pdf_service.dart';
@@ -35,7 +36,9 @@ void main() async {
   await Hive.openBox<BatchItem>('batch_items');
   
   final fileService = Get.put(FileService());
+  final pdfService = Get.put(PdfService());
   Get.put(ImageProcessingService(fileService));
+  Get.put(DetectionService());
   final batchRepository = Get.put(
     BatchRepository(
       jobBox: Hive.box<BatchJob>('batch_jobs'),
@@ -47,7 +50,7 @@ void main() async {
       repository: batchRepository,
       fileService: fileService,
       imageProcessingService: Get.find<ImageProcessingService>(),
-      pdfService: PdfService(),
+      pdfService: pdfService,
     ),
   );
   Get.put(DocumentSessionController());
