@@ -13,6 +13,14 @@ import 'package:image_flow/core/theme/app_theme.dart';
 import 'package:image_flow/data/models/batch_item.dart';
 import 'package:image_flow/data/models/batch_job.dart';
 import 'package:image_flow/data/models/scan_model.dart';
+import 'package:image_flow/data/repositories/image_processing_repository_impl.dart';
+import 'package:image_flow/data/repositories/scan_repository_impl.dart';
+import 'package:image_flow/domain/repositories/image_processing_repository.dart';
+import 'package:image_flow/domain/repositories/scan_repository.dart';
+import 'package:image_flow/domain/usecases/get_scans_use_case.dart';
+import 'package:image_flow/domain/usecases/process_document_use_case.dart';
+import 'package:image_flow/domain/usecases/process_face_use_case.dart';
+import 'package:image_flow/domain/usecases/save_scan_use_case.dart';
 import 'package:image_flow/presentation/controllers/document_session_controller.dart';
 import 'package:image_flow/presentation/routes/app_pages.dart';
 import 'package:image_flow/presentation/routes/app_routes.dart';
@@ -37,8 +45,25 @@ void main() async {
   
   final fileService = Get.put(FileService());
   final pdfService = Get.put(PdfService());
-  Get.put(ImageProcessingService(fileService));
+  final imageProcessingService = Get.put(ImageProcessingService(fileService));
   Get.put(DetectionService());
+
+  final ScanRepository scanRepository = Get.put<ScanRepository>(
+    ScanRepositoryImpl(Hive.box<ScanModel>('scans')),
+  );
+  final ImageProcessingRepository imageProcessingRepository =
+      Get.put<ImageProcessingRepository>(
+    ImageProcessingRepositoryImpl(
+      imageProcessingService: imageProcessingService,
+      fileService: fileService,
+    ),
+  );
+
+  Get.put(ProcessFaceUseCase(imageProcessingRepository));
+  Get.put(ProcessDocumentUseCase(imageProcessingRepository));
+  Get.put(SaveScanUseCase(scanRepository));
+  Get.put(GetScansUseCase(scanRepository));
+
   final batchRepository = Get.put(
     BatchRepository(
       jobBox: Hive.box<BatchJob>('batch_jobs'),
@@ -49,7 +74,7 @@ void main() async {
     BatchQueueService(
       repository: batchRepository,
       fileService: fileService,
-      imageProcessingService: Get.find<ImageProcessingService>(),
+      imageProcessingService: imageProcessingService,
       pdfService: pdfService,
     ),
   );
