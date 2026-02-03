@@ -137,6 +137,8 @@ class HomeController extends GetxController {
       arguments: {
         'imagePath': path,
         'type': ScanType.document,
+        'documentSession': true,
+        'startNewSession': true,
       },
     );
   }

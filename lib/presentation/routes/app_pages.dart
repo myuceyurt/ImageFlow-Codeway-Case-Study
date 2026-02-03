@@ -4,6 +4,8 @@ import 'package:image_flow/presentation/pages/batch_processing/batch_processing_
 import 'package:image_flow/presentation/pages/batch_processing/batch_processing_view.dart';
 import 'package:image_flow/presentation/pages/batch_summary/batch_summary_binding.dart';
 import 'package:image_flow/presentation/pages/batch_summary/batch_summary_view.dart';
+import 'package:image_flow/presentation/pages/document_pages/document_pages_binding.dart';
+import 'package:image_flow/presentation/pages/document_pages/document_pages_view.dart';
 import 'package:image_flow/presentation/pages/history_detail/history_detail_binding.dart';
 import 'package:image_flow/presentation/pages/history_detail/history_detail_view.dart';
 import 'package:image_flow/presentation/pages/home/home_binding.dart';
@@ -41,6 +43,11 @@ class AppPages {
       name: Routes.processing,
       page: () => const ProcessingView(),
       binding: ProcessingBinding(),
+    ),
+    GetPage<dynamic>(
+      name: Routes.documentPages,
+      page: () => const DocumentPagesView(),
+      binding: DocumentPagesBinding(),
     ),
     GetPage<dynamic>(
       name: Routes.batchProcessing,

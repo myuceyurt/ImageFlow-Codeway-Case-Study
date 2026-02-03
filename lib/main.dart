@@ -12,6 +12,7 @@ import 'package:image_flow/core/theme/app_theme.dart';
 import 'package:image_flow/data/models/batch_item.dart';
 import 'package:image_flow/data/models/batch_job.dart';
 import 'package:image_flow/data/models/scan_model.dart';
+import 'package:image_flow/presentation/controllers/document_session_controller.dart';
 import 'package:image_flow/presentation/routes/app_pages.dart';
 import 'package:image_flow/presentation/routes/app_routes.dart';
 import 'package:image_flow/presentation/widgets/app_background.dart';
@@ -49,6 +50,7 @@ void main() async {
       pdfService: PdfService(),
     ),
   );
+  Get.put(DocumentSessionController());
   await batchQueue.restoreIncompleteBatches();
   await batchQueue.cleanupStaleBatches(const Duration(days: 2));
 

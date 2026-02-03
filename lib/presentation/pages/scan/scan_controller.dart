@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:google_mlkit_document_scanner/google_mlkit_document_scanner.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
@@ -24,6 +25,7 @@ class ScanController extends GetxController {
   bool _isBusy = false;
   
   bool isInitialized = false;
+  bool documentOnly = false;
   int _cameraIndex = 0;
   List<CameraDescription> _cameras = [];
   
@@ -34,6 +36,11 @@ class ScanController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    final args = Get.arguments as Map<String, dynamic>?;
+    if (args != null && args['documentOnly'] == true) {
+      documentOnly = true;
+      scanType.value = ScanType.document;
+    }
     _faceDetector = FaceDetector(
       options: FaceDetectorOptions(
         enableContours: true,
@@ -122,25 +129,33 @@ class ScanController extends GetxController {
           image,
           camera,
         );
-
-        final faces = await _faceDetector.processImage(inputImage);
-        if (faces.isNotEmpty) {
-          if (scanType.value != ScanType.face) {
-            scanType.value = ScanType.face;
-          }
-          detectedFaces.value = faces;
-          recognizedText.value = null;
-        } else {
+        if (documentOnly) {
           final text = await _textRecognizer.processImage(inputImage);
-          if (text.blocks.isNotEmpty) {
-             if (scanType.value != ScanType.document) {
-               scanType.value = ScanType.document;
-             }
-             recognizedText.value = text;
-             detectedFaces.clear();
+          recognizedText.value = text.blocks.isNotEmpty ? text : null;
+          detectedFaces.clear();
+          if (scanType.value != ScanType.document) {
+            scanType.value = ScanType.document;
+          }
+        } else {
+          final faces = await _faceDetector.processImage(inputImage);
+          if (faces.isNotEmpty) {
+            if (scanType.value != ScanType.face) {
+              scanType.value = ScanType.face;
+            }
+            detectedFaces.value = faces;
+            recognizedText.value = null;
           } else {
-             detectedFaces.clear();
-             recognizedText.value = null;
+            final text = await _textRecognizer.processImage(inputImage);
+            if (text.blocks.isNotEmpty) {
+              if (scanType.value != ScanType.document) {
+                scanType.value = ScanType.document;
+              }
+              recognizedText.value = text;
+              detectedFaces.clear();
+            } else {
+              detectedFaces.clear();
+              recognizedText.value = null;
+            }
           }
         }
       } catch (e) {
@@ -163,8 +178,8 @@ class ScanController extends GetxController {
     await _startCamera(_cameras[_cameraIndex]);
   }
 
-  Future<String?> captureImage() async {
-    if (scanType.value == ScanType.document) {
+  Future<List<String>?> captureImage() async {
+    if (scanType.value == ScanType.document || documentOnly) {
       if (cameraController != null &&
           cameraController!.value.isStreamingImages) {
         await cameraController!.stopImageStream();
@@ -186,19 +201,25 @@ class ScanController extends GetxController {
           documentScanner = null;
         }
 
-        if (result.images.isNotEmpty) {
-          if (cameraController != null &&
-              !cameraController!.value.isStreamingImages) {
-            await cameraController!.startImageStream(_processImageStream);
-          }
-          return result.images.first;
-        } else {
-          if (cameraController != null &&
-              !cameraController!.value.isStreamingImages) {
-            await cameraController!.startImageStream(_processImageStream);
-          }
-          return null;
+        if (cameraController != null &&
+            !cameraController!.value.isStreamingImages) {
+          await cameraController!.startImageStream(_processImageStream);
         }
+
+        if (result.images.isNotEmpty) {
+          return result.images;
+        }
+        return null;
+      } on MissingPluginException {
+        Get.snackbar(
+          'Error',
+          'Document scanner plugin not loaded. Please fully restart the app or reinstall after flutter clean.',
+        );
+        if (cameraController != null &&
+            !cameraController!.value.isStreamingImages) {
+          await cameraController!.startImageStream(_processImageStream);
+        }
+        return null;
       } catch (e) {
         Get.snackbar('Error', 'Document scan failed: $e');
         if (cameraController != null &&
@@ -216,7 +237,6 @@ class ScanController extends GetxController {
       }
     }
 
-
     if (cameraController == null || !cameraController!.value.isInitialized) {
       return null;
     }
@@ -230,7 +250,7 @@ class ScanController extends GetxController {
       
       await cameraController!.startImageStream(_processImageStream);
       
-      return xFile.path;
+      return [xFile.path];
     } catch (e) {
       Get.snackbar('Error', 'Capture failed: $e');
       return null;
@@ -248,6 +268,32 @@ class ScanController extends GetxController {
 
       try {
         final file = File(image.path);
+        if (documentOnly) {
+          final text = await _imageProcessingService.detectText(file);
+          if (text.blocks.isEmpty) {
+            Get.snackbar('Error', 'No document detected');
+            if (cameraController != null &&
+                !cameraController!.value.isStreamingImages) {
+              await cameraController!.startImageStream(_processImageStream);
+            }
+            return;
+          }
+
+          if (cameraController != null &&
+              !cameraController!.value.isStreamingImages) {
+            await cameraController!.startImageStream(_processImageStream);
+          }
+          await Get.toNamed<void>(
+            Routes.processing,
+            arguments: {
+              'imagePath': image.path,
+              'type': ScanType.document,
+              'documentSession': true,
+              'startNewSession': false,
+            },
+          );
+          return;
+        }
         final hasFaces = await _imageProcessingService.hasFaces(file);
         if (hasFaces) {
           if (cameraController != null &&
@@ -283,6 +329,8 @@ class ScanController extends GetxController {
           arguments: {
             'imagePath': image.path,
             'type': ScanType.document,
+            'documentSession': true,
+            'startNewSession': true,
           },
         );
       } catch (e) {

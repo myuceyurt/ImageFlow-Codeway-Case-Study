@@ -159,13 +159,25 @@ class ScanView extends StatelessWidget {
                         ),
                         GestureDetector(
                           onTap: () async {
-                            final path = await controller.captureImage();
-                            if (path != null) {
+                            final paths = await controller.captureImage();
+                            if (paths != null && paths.isNotEmpty) {
+                              final isDocument = controller.documentOnly ||
+                                  controller.scanType.value == ScanType.document;
+                              final startNewSession =
+                                  controller.documentOnly ? false : isDocument;
                               await Get.toNamed<dynamic>(
                                 Routes.processing,
                                 arguments: {
-                                  'imagePath': path,
-                                  'type': controller.scanType.value,
+                                  if (isDocument)
+                                    'imagePaths': paths
+                                  else
+                                    'imagePath': paths.first,
+                                  'type': isDocument
+                                      ? ScanType.document
+                                      : controller.scanType.value,
+                                  if (isDocument) 'documentSession': true,
+                                  if (isDocument)
+                                    'startNewSession': startNewSession,
                                 },
                               );
                             }
