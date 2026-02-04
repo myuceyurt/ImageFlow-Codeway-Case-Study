@@ -2,6 +2,8 @@
 
 This project is an image processing application developed for Codeway case study by me :)
 
+Note: This app has been tested on Android devices only and has not yet been tested on iOS.
+
 ### Face Detection Mode
 - Detects faces in real-time using Google ML Kit Face Detection
 - Applies artistic grayscale filter specifically to detected face regions
@@ -183,13 +185,7 @@ lib/
   <string>ImageFlow needs photo library access to import images</string>
   ```
 
-## Usage
-
-1. **Launch the app** - A splash screen displays while services initialize
-2. **Choose a mode** - Select Face Mode or Document Mode from the home screen
-3. **Capture or import** - Use the camera or select images from gallery
-4. **Process** - The app automatically detects and processes your content
-5. **Review & export** - Preview results, share, or save as PDF
+## Advanced Features
 
 ### Batch Processing Workflow
 1. Select multiple images from the gallery
